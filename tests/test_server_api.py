@@ -67,6 +67,8 @@ def test_nonstreaming_chat_completion_and_unknown_field():
         "total_tokens": 12,
     }
     assert backend.seen[0][1].config.enabled is False
+    assert body["owie"]["intervention"]["selected_token_count"] == 0
+    assert body["owie"]["rendered_prompt_hash"].startswith("sha256:")
     assert current_request_state() is None
 
 
@@ -95,6 +97,9 @@ def test_intervention_is_read_only_from_top_level_field():
     assert seen.config.enabled is True
     assert seen.config.direction_id == "compliance-v1"
     assert any(seen.primary_mask)
+    telemetry = response.json()["owie"]
+    assert telemetry["intervention"]["selected_token_count"] > 0
+    assert telemetry["intervention"]["config"]["direction_id"] == "compliance-v1"
 
 
 def test_streaming_is_rejected():
@@ -131,6 +136,22 @@ def test_tool_call_response_encoding():
     message = response.json()["choices"][0]["message"]
     assert message["content"] is None
     assert message["tool_calls"] == list(calls)
+
+
+def test_response_echoes_direction_bundle_hash():
+    completion = BackendCompletion(
+        "answer",
+        4,
+        1,
+        direction_bundle_hash="sha256:" + "a" * 64,
+    )
+    response = client(FakeBackend(completion)).post(
+        "/v1/chat/completions",
+        json={"messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert response.json()["owie"]["intervention"]["direction_bundle_hash"] == (
+        "sha256:" + "a" * 64
+    )
 
 
 def test_off_response_matches_direct_backend_result():
@@ -179,6 +200,26 @@ def test_intervention_off_matches_direct_model_decoding():
         clean_up_tokenization_spaces=False,
     )
     assert completion.content == direct
+    assert completion.finish_reason == "stop"
+
+
+def test_generation_at_token_cap_reports_length():
+    tokenizer = load_pinned_tokenizer(local_files_only=True)
+    rendered = render_chat(tokenizer, [{"role": "user", "content": "hi"}])
+    generated_ids = tokenizer("unfinished", add_special_tokens=False)["input_ids"]
+    model = DeterministicGenerateModel(generated_ids)
+    completion = TransformersBackend(model, tokenizer).complete(
+        rendered,
+        SimpleNamespace(
+            temperature=0.0, max_tokens=len(generated_ids), seed=None
+        ),
+        RequestState(
+            InterventionConfig(enabled=False),
+            rendered.primary_mask,
+            rendered.whole_tool_block_mask,
+        ),
+    )
+    assert completion.finish_reason == "length"
 
 
 class FailingGenerateModel(torch.nn.Module):
@@ -203,7 +244,9 @@ def test_generation_failure_clears_state_and_removes_model_hook():
     )
     model = FailingGenerateModel()
     backend = TransformersBackend(
-        model, tokenizer, directions={"unit": torch.tensor([1.0])}
+        model,
+        tokenizer,
+        directions={"unit": RegisteredDirection(torch.tensor([1.0]), 0, "unit")},
     )
     state = RequestState(
         InterventionConfig(enabled=True, direction_id="unit", layer=0),
@@ -247,3 +290,65 @@ def test_bundle_metadata_mismatch_fails_before_hook_installation():
             rendered, SimpleNamespace(temperature=0.0, max_tokens=8), state
         )
     assert not model.model.layers[0]._forward_hooks
+
+
+def test_hook_point_mismatch_fails_before_hook_installation():
+    tokenizer = load_pinned_tokenizer(local_files_only=True)
+    rendered = render_chat(tokenizer, [{"role": "user", "content": "go"}])
+    model = FailingGenerateModel()
+    backend = TransformersBackend(
+        model,
+        tokenizer,
+        directions={
+            "d": RegisteredDirection(
+                torch.tensor([1.0]), 0, "unit", hook_point="resid_pre"
+            )
+        },
+    )
+    state = RequestState(
+        InterventionConfig(enabled=True, direction_id="d", layer=0),
+        rendered.primary_mask,
+        rendered.whole_tool_block_mask,
+    )
+    with pytest.raises(ValueError, match="supports only 'resid_post'"):
+        backend.complete(
+            rendered,
+            SimpleNamespace(temperature=0.0, max_tokens=8, seed=None),
+            state,
+        )
+    assert not model.model.layers[0]._forward_hooks
+
+
+class SeedRecordingModel(DeterministicGenerateModel):
+    def __init__(self, generated_ids):
+        super().__init__(generated_ids)
+        self.draws = []
+
+    def generate(self, input_ids, **kwargs):
+        self.draws.append(float(torch.rand(())))
+        return super().generate(input_ids, **kwargs)
+
+
+def test_seed_controls_generation_and_restores_global_rng_state():
+    tokenizer = load_pinned_tokenizer(local_files_only=True)
+    rendered = render_chat(tokenizer, [{"role": "user", "content": "hi"}])
+    model = SeedRecordingModel(
+        tokenizer("output", add_special_tokens=False)["input_ids"]
+    )
+    backend = TransformersBackend(model, tokenizer)
+    state = RequestState(
+        InterventionConfig(enabled=False),
+        rendered.primary_mask,
+        rendered.whole_tool_block_mask,
+    )
+    request = SimpleNamespace(temperature=1.0, max_tokens=8, seed=1234)
+
+    torch.manual_seed(9876)
+    expected_next = float(torch.rand(()))
+    torch.manual_seed(9876)
+    backend.complete(rendered, request, state)
+    backend.complete(rendered, request, state)
+    actual_next = float(torch.rand(()))
+
+    assert model.draws[0] == model.draws[1]
+    assert actual_next == expected_next

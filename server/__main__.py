@@ -6,7 +6,7 @@ import argparse
 from typing import Sequence
 
 from .api import create_app
-from .backend import RegisteredDirection, TransformersBackend
+from .backend import RegisteredDirection, TransformersBackend, hash_direction_bundle
 from .rendering import MODEL_ID, MODEL_REVISION, load_pinned_tokenizer
 
 
@@ -47,6 +47,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             bundle.vector,
             layer=bundle.manifest.layer,
             normalization=bundle.manifest.normalization,
+            hook_point=bundle.manifest.hook_point,
+            bundle_hash=hash_direction_bundle(bundle.path),
         )
     app = create_app(
         TransformersBackend(model, tokenizer, directions=directions), tokenizer

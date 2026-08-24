@@ -6,6 +6,12 @@ text for role delimiters: tool output can contain valid Llama special-token
 strings, so delimiter-based recovery would let untrusted content forge its own
 provenance.
 
+The OpenAI-compatible input role for a tool result is `tool`. The renderer
+emits the model-native `ipython` header, but it rejects an input message whose
+role is already `ipython`. This prevents a treatment request from succeeding
+with an empty primary mask. Assistant `tool_calls` are likewise rejected on
+every other input role.
+
 ## Character regions
 
 Every rendered character belongs to exactly one region:
@@ -74,8 +80,21 @@ a no-cache full-prefix forward, positions beyond the prompt length likewise
 map to false.
 
 Requests are serialized by one async lock. The active state uses a context
-variable, is installed only inside that lock, and is reset in `finally`. The
-model hook is also removed in `finally`, including when generation raises.
+variable, is installed only inside that lock, and is reset in `finally`.
+Blocking model generation runs in a worker thread, with the context variable
+copied into that thread. The model hook is also removed in `finally`, including
+when generation raises.
+
+Each loaded direction bundle must target the pinned model revision, requested
+layer, declared normalization, and `resid_post` hook point. Any mismatch stops
+the request before hook installation. A request seed scopes the PyTorch and MPS
+random-number state to one generation and restores the prior state afterward.
+
+Every completion includes an `owie` extension with the model revision,
+rendered-prompt hash, seed, prompt and ambiguous-token counts, resolved
+intervention config, both mask counts, selected mask count, and direction
+bundle hash. Thus an enabled intervention with an empty mask is visible in the
+stored response body.
 
 ## Diagnostic command
 

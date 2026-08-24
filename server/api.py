@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import time
+from dataclasses import asdict
 from typing import Any, Literal, Protocol
 
 from fastapi import FastAPI, HTTPException
@@ -115,6 +116,7 @@ def create_app(
         message: dict[str, Any] = {"role": "assistant", "content": completion.content}
         if completion.tool_calls:
             message["tool_calls"] = list(completion.tool_calls)
+        prompt_hash = f"sha256:{hashlib.sha256(rendered.text.encode()).hexdigest()}"
         return {
             "id": f"chatcmpl-{fingerprint}",
             "object": "chat.completion",
@@ -131,6 +133,22 @@ def create_app(
                 "prompt_tokens": completion.prompt_tokens,
                 "completion_tokens": completion.completion_tokens,
                 "total_tokens": completion.prompt_tokens + completion.completion_tokens,
+            },
+            "owie": {
+                "model_revision": model_revision,
+                "rendered_prompt_hash": prompt_hash,
+                "prompt_token_count": len(rendered.input_ids),
+                "ambiguous_token_count": len(rendered.ambiguous_tokens),
+                "seed": request.seed,
+                "intervention": {
+                    "config": asdict(config),
+                    "selected_token_count": sum(state.selected_mask),
+                    "primary_token_count": sum(state.primary_mask),
+                    "whole_tool_block_token_count": sum(
+                        state.whole_tool_block_mask
+                    ),
+                    "direction_bundle_hash": completion.direction_bundle_hash,
+                },
             },
         }
 

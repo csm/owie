@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 
 import pytest
 import torch
@@ -101,6 +102,17 @@ def test_sequential_configs_cannot_contaminate_one_another():
             )
             assert current_request_state() is None
         assert seen == ["tool_content", "whole_tool_block"]
+
+    asyncio.run(scenario())
+
+
+def test_synchronous_generation_runs_off_the_event_loop_thread():
+    runtime = SerializedGenerationRuntime()
+
+    async def scenario():
+        event_loop_thread = threading.get_ident()
+        worker_thread = await runtime.run(state(), threading.get_ident)
+        assert worker_thread != event_loop_thread
 
     asyncio.run(scenario())
 

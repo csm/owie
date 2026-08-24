@@ -4,6 +4,7 @@ import logging
 
 import pytest
 
+from server.backend import encode_tool_call
 from server.rendering import (
     EOT,
     RenderError,
@@ -192,13 +193,80 @@ def test_tool_delimiters_do_not_forge_provenance(tokenizer):
     )
 
 
-def test_ipython_is_rendered_as_tool_block_but_not_primary_role(tokenizer):
-    rendered = render_chat(
-        tokenizer,
-        [{"role": "user", "content": "go"}, {"role": "ipython", "content": "x"}],
+def test_ipython_input_role_is_rejected_instead_of_silently_unmasked(tokenizer):
+    with pytest.raises(RenderError, match="send tool results with role 'tool'"):
+        render_chat(
+            tokenizer,
+            [
+                {"role": "user", "content": "go"},
+                {"role": "ipython", "content": "x"},
+            ],
+        )
+
+
+def test_tool_calls_on_non_assistant_message_are_rejected(tokenizer):
+    with pytest.raises(RenderError, match="valid only on assistant"):
+        render_chat(
+            tokenizer,
+            [
+                {
+                    "role": "tool",
+                    "content": "result",
+                    "tool_calls": [
+                        {"function": {"name": "fetch", "arguments": {}}}
+                    ],
+                }
+            ],
+        )
+
+
+def test_openai_tool_call_arguments_round_trip_without_double_encoding(tokenizer):
+    content, tool_calls = encode_tool_call(
+        '{"name":"fetch","parameters":{"url":"x","limit":2}}'
     )
-    assert not any(rendered.primary_mask)
-    assert any(rendered.whole_tool_block_mask)
+    assert content is None
+    wire_messages = [
+        {"role": "user", "content": "fetch"},
+        {"role": "assistant", "content": None, "tool_calls": list(tool_calls)},
+    ]
+    object_messages = [
+        {"role": "user", "content": "fetch"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "fetch",
+                        "arguments": {"url": "x", "limit": 2},
+                    },
+                }
+            ],
+        },
+    ]
+    assert render_characters(wire_messages)[0] == render_characters(object_messages)[0]
+    render_chat(tokenizer, wire_messages)
+
+
+def test_invalid_wire_format_tool_arguments_are_rejected(tokenizer):
+    with pytest.raises(RenderError, match="not valid JSON"):
+        render_chat(
+            tokenizer,
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "fetch",
+                                "arguments": "not-json",
+                            }
+                        }
+                    ],
+                }
+            ],
+        )
 
 
 def test_renderer_rejects_multiple_tool_calls(tokenizer):

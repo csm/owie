@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Iterator, Literal, TypeVar
 
+import anyio
 import torch
 
 from interventions import Norm, add_vector, project_out
@@ -73,7 +74,10 @@ class SerializedGenerationRuntime:
         async with self._lock:
             token = _REQUEST_STATE.set(state)
             try:
-                result = operation()
+                if inspect.iscoroutinefunction(operation):
+                    result = operation()
+                else:
+                    result = await anyio.to_thread.run_sync(operation)
                 if inspect.isawaitable(result):
                     return await result
                 return result

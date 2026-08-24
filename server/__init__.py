@@ -6,6 +6,7 @@ from .backend import (
     RegisteredDirection,
     TransformersBackend,
     encode_tool_call,
+    hash_direction_bundle,
 )
 from .rendering import (
     MODEL_ID,
@@ -47,6 +48,7 @@ __all__ = [
     "current_request_state",
     "encode_tool_call",
     "installed_intervention_hook",
+    "hash_direction_bundle",
     "load_pinned_tokenizer",
     "render_characters",
     "render_chat",

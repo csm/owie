@@ -76,7 +76,9 @@ uv run owie-server --direction compliance-v1
 
 The HTTP surface is intentionally limited to `GET /v1/models` and
 non-streaming `POST /v1/chat/completions`. See `docs/SPAN_MAPPING.md` for the
-top-level intervention configuration and boundary-token rule.
+top-level intervention configuration and boundary-token rule. Responses carry
+an `owie` diagnostics block containing the resolved intervention, mask counts,
+prompt hash, model revision, seed, and direction-bundle hash.
 
 ## Layout
 

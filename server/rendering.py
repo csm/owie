@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from bisect import bisect_right
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -166,6 +167,60 @@ def _tool_function(tool_call: Any) -> Any:
     return function
 
 
+def _normalize_messages(messages: Sequence[Any]) -> list[dict[str, Any]]:
+    """Validate OpenAI roles and decode wire-format tool arguments."""
+    normalized: list[dict[str, Any]] = []
+    for message_index, message in enumerate(messages):
+        if not isinstance(message, Mapping):
+            raise RenderError(f"message {message_index} must be an object")
+        item = dict(message)
+        role = item.get("role")
+        if role == "ipython":
+            raise RenderError(
+                "role 'ipython' is not accepted on the OpenAI-compatible surface; "
+                "send tool results with role 'tool'"
+            )
+
+        tool_calls = item.get("tool_calls")
+        if tool_calls is not None:
+            if role != "assistant":
+                raise RenderError(
+                    f"message {message_index} has tool_calls but role is {role!r}; "
+                    "tool_calls are valid only on assistant messages"
+                )
+            if not isinstance(tool_calls, Sequence) or isinstance(tool_calls, str):
+                raise RenderError("tool_calls must be a list")
+            normalized_calls: list[dict[str, Any]] = []
+            for call_index, tool_call in enumerate(tool_calls):
+                if not isinstance(tool_call, Mapping):
+                    raise RenderError(f"tool_calls[{call_index}] must be an object")
+                call = dict(tool_call)
+                function = call.get("function")
+                if not isinstance(function, Mapping):
+                    raise RenderError(
+                        f"tool_calls[{call_index}].function must be an object"
+                    )
+                function_copy = dict(function)
+                arguments = function_copy.get("arguments")
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError as exc:
+                        raise RenderError(
+                            f"tool_calls[{call_index}].function.arguments is not valid JSON"
+                        ) from exc
+                if not isinstance(arguments, Mapping):
+                    raise RenderError(
+                        f"tool_calls[{call_index}].function.arguments must encode a JSON object"
+                    )
+                function_copy["arguments"] = dict(arguments)
+                call["function"] = function_copy
+                normalized_calls.append(call)
+            item["tool_calls"] = normalized_calls
+        normalized.append(item)
+    return normalized
+
+
 def _render_tools_preamble(
     writer: _Writer, tools: Sequence[Any], first_user: tuple[int, Any]
 ) -> None:
@@ -192,7 +247,7 @@ def _render_tools_preamble(
     _append_special(writer, EOT, "user")
 
 
-def render_characters(
+def _render_characters_normalized(
     messages: Sequence[Any],
     *,
     tools: Sequence[Any] | None = None,
@@ -290,8 +345,41 @@ def render_characters(
     return writer.text, tuple(writer.regions), tuple(writer.tool_blocks)
 
 
+def render_characters(
+    messages: Sequence[Any],
+    *,
+    tools: Sequence[Any] | None = None,
+    add_generation_prompt: bool = True,
+) -> tuple[str, tuple[CharacterRegion, ...], tuple[tuple[int, int], ...]]:
+    """Render after validating and normalizing OpenAI wire-format messages."""
+    return _render_characters_normalized(
+        _normalize_messages(messages),
+        tools=tools,
+        add_generation_prompt=add_generation_prompt,
+    )
+
+
 def _overlaps(start: int, end: int, region_start: int, region_end: int) -> bool:
     return start < region_end and region_start < end
+
+
+def _token_regions(
+    regions: tuple[CharacterRegion, ...],
+    starts: tuple[int, ...],
+    start: int,
+    end: int,
+) -> list[CharacterRegion]:
+    """Return overlapping regions without rescanning the complete prompt."""
+    if start >= end or not regions:
+        return []
+    index = max(0, bisect_right(starts, start) - 1)
+    overlapping: list[CharacterRegion] = []
+    while index < len(regions) and regions[index].start < end:
+        region = regions[index]
+        if _overlaps(start, end, region.start, region.end):
+            overlapping.append(region)
+        index += 1
+    return overlapping
 
 
 def render_chat(
@@ -302,12 +390,13 @@ def render_chat(
     add_generation_prompt: bool = True,
     verify_official: bool = True,
 ) -> RenderedChat:
-    text, regions, tool_blocks = render_characters(
-        messages, tools=tools, add_generation_prompt=add_generation_prompt
+    normalized_messages = _normalize_messages(messages)
+    text, regions, tool_blocks = _render_characters_normalized(
+        normalized_messages, tools=tools, add_generation_prompt=add_generation_prompt
     )
     if verify_official:
         official = tokenizer.apply_chat_template(
-            list(messages),
+            normalized_messages,
             tools=tools,
             tokenize=False,
             add_generation_prompt=add_generation_prompt,
@@ -326,12 +415,9 @@ def render_chat(
     primary: list[bool] = []
     whole: list[bool] = []
     ambiguous: list[AmbiguousToken] = []
+    region_starts = tuple(region.start for region in regions)
     for token_index, (token_id, (start, end)) in enumerate(zip(input_ids, offsets)):
-        overlapping = [
-            region
-            for region in regions
-            if _overlaps(start, end, region.start, region.end)
-        ]
+        overlapping = _token_regions(regions, region_starts, start, end)
         primary.append(
             any(r.role == "tool" and r.region == "content" for r in overlapping)
         )
