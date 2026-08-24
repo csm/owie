@@ -59,8 +59,10 @@ model, not Instruct. Exploratory use only, reported separately.
 | torch | 2.13.0 |
 | safetensors | 0.8.0 |
 | numpy | 2.5.2 |
+| transformers | 5.15.1 |
+| tokenizers | 0.22.2 |
 
-Exact dependency versions live in `uv.lock`. `transformers` is **not yet
-pinned**: it is not a Checkpoint 1 dependency, and its version changes rendered
-prompt bytes (`PREFLIGHT.md` §3 finding 6, D7). It gets pinned at Checkpoint 3,
-behind a byte-equality test, not before.
+Exact dependency versions live in `uv.lock`. Transformers was pinned at
+Checkpoint 3 after adding the official-template byte-equality test. The
+preflight's incompatible `tokenizers==0.23.1` entry was corrected to the
+published compatible release `0.22.2`.
