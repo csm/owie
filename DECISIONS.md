@@ -62,8 +62,7 @@ the metric permits, coarse-then-refine layer band, pre-registered generation
 caps. Details in `PREFLIGHT.md` §6 and §7. Arms and the safety eval are **not**
 reduced.
 
-**Open sub-item:** a wall-clock budget for the sweep is requested from the human
-(`PREFLIGHT.md` §11). No paid compute is provisioned.
+Sub-item resolved by B5 below. No paid compute is provisioned.
 
 ### B2. Model — `meta-llama/Llama-3.1-8B-Instruct`
 
@@ -85,11 +84,9 @@ Pre-registered replication target if Llama access ever becomes an obstacle:
 `Qwen2.5-7B-Instruct` (`a09a35458c702b33eeacc393d103063234e8bc28`), accepting
 the weaker provenance structure described in `PREFLIGHT.md` §3.
 
-Newly proposed, not yet decided: adding `meta-llama/Llama-3.2-3B-Instruct`
-(`0cb88a4f764b7a12671c53f0838cd831a0843b95`, access confirmed) as a **pilot**
-for pipeline debugging and the Checkpoint 4 determinism test only. Same template
-family, ~3× faster, no SAE, never carries a reported result. See
-`PREFLIGHT.md` §11.
+Re-confirmed 2026-08-23 after the throughput picture changed: **8B stands.**
+Capacity is ample at 37.4 GiB addressable and the SAE arm depends on this
+model. A 3B pilot is approved separately as a non-reporting substrate — see B6.
 
 ### B3. First target concept — fit all three, select on held-out data
 
@@ -130,18 +127,71 @@ Llama-3.1-8B **base**, and applying a base dictionary to Instruct activations
 introduces an unquantified mismatch on exactly the tuning under study. Optional
 exploratory check only, reported separately.
 
+### B5. Compute budget — 3 days wall clock for the Phase 0 sweep
+
+Decided by Casey Marshall, 2026-08-23. Resolves the open sub-item in B1′ and
+D9.
+
+The Phase 0 sweep gets **3 days (~72 h)** of otherwise-idle laptop time. This
+is a ceiling, not a target. It sits mid-range in the 2–5 day estimate, so it may
+bind, and the consequences of binding are pre-registered in `PREFLIGHT.md` §6
+**before any result is seen**:
+
+- the sweep writes raw JSONL incrementally, one record per completed cell, and
+  is resumable; a wall-clock stop destroys no completed work;
+- tranche A — the full coarse pass at **every arm**, including layer 19 and its
+  projection companion — completes before refinement begins, so a stop yields a
+  complete coarse sweep rather than a dense band with missing arms;
+- if tranche A has not completed at 72 h, **stop and report it as far as it
+  got**. Recovering time by dropping an arm, dropping the safety eval, or
+  shortening the generation cap mid-run is **prohibited** — each trades an
+  honest partial result for a dishonest complete-looking one;
+- the alpha grid is the largest single multiplier in the cell count and is the
+  first thing to shrink, as a number fixed in `EXPERIMENT_PROTOCOL.md` before
+  collection, never as a mid-run adjustment;
+- **overrunning 72 h requires a fresh ruling recorded here.** It is not a
+  judgement call for whoever is watching the run.
+
+**Not covered:** Checkpoint 5's paired replay, costed separately at 4–10 days.
+It needs its own budget ruling before it starts.
+
+### B6. 3B pilot — approved, placed at the checkpoints that need it
+
+Decided by Casey Marshall, 2026-08-23. Resolves D10.
+
+`meta-llama/Llama-3.2-3B-Instruct`
+(`0cb88a4f764b7a12671c53f0838cd831a0843b95`, access confirmed) is approved as a
+**pilot substrate**. It shares the Llama 3 template family, so every
+chat-template finding in `PREFLIGHT.md` §3 transfers unchanged, and it runs
+roughly 3× faster.
+
+Planned, not run now. Two placements:
+
+- **Checkpoint 4 — the determinism acceptance test.** Primary placement. MPS
+  determinism is unproven and a failure invalidates Checkpoint 5's
+  paired-replay design; the test does not care about model quality.
+- **Checkpoint 2 — a dry run** of extraction → fit → a two-layer sweep slice,
+  to exercise the pipeline end to end before spending any of the B5 budget on
+  8B. Charged to development time, not to the 72 h.
+
+**Hard constraint:** 3B has no matched SAE and is not the pinned model. It
+never carries a reported result, never appears in an effect-size table, and
+never substitutes for an 8B arm. Runs against it are tagged as pilot runs in
+their manifests so they cannot later be mistaken for primary data.
+
 ---
 
 ## C. Approved deviations
 
-**C1. Phase 0 sweep restructured for MPS throughput** — 2026-08-23, pending
-approval alongside B1′. Coarse-then-refine layer band (even layers 10–26, then
+**C1. Phase 0 sweep restructured for MPS throughput** — 2026-08-23, approved
+alongside B1′ and B5. Coarse-then-refine layer band (even layers 10–26, then
 ±1 around the best, with layer 19 always swept for the SAE arm) in place of a
 dense 8–28 sweep; metrics split into forward-only and length-capped-decode
 classes. Motivation and figures in `PREFLIGHT.md` §6 and §7. **No arm is
 dropped and the safety eval is unreduced.** Recorded as a deviation, not folded
 into the protocol silently, so that any further trimming under time pressure
-remains visible.
+remains visible. B5 fixes the time box at 72 h and pre-registers exactly what
+may and may not be cut if it binds.
 
 ---
 
@@ -159,7 +209,8 @@ Tracked here so they are not settled silently by whoever writes the code first.
 | D6 | Whether tokenizer files may be vendored into this repo | **MOOT** | the tokenizer is fetched directly at the pinned revision; there is nothing to vendor |
 | D7 | `transformers` major version — v5 is current | open, before Checkpoint 3 | **evidence added**: the same template renders different bytes under bare Jinja2 vs `transformers` 5.15.1 (`ensure_ascii` policy). 5.15.1 is verified installable and renders the pinned template; pin only after byte-equality is asserted in a test. `PREFLIGHT.md` §3 finding 6 |
 | D8 | How code reaches the GPU host | **MOOT** | there is no separate host |
-| D9 | Wall-clock budget for the Phase 0 sweep on this machine | open, before Checkpoint 2 | human ruling requested. `PREFLIGHT.md` §6, §11 |
-| D10 | Whether to add a 3B pilot model | open, before Checkpoint 2 | proposed: yes, for pipeline debugging and the determinism test only. `PREFLIGHT.md` §11 |
+| D9 | Wall-clock budget for the Phase 0 sweep on this machine | **RESOLVED** | 3 days / ~72 h, with pre-registered truncation rules. See B5 |
+| D10 | Whether to add a 3B pilot model | **RESOLVED** | approved as a non-reporting pilot; placed at Checkpoint 4 (determinism) and as a Checkpoint 2 dry run. See B6 |
+| D13 | Wall-clock budget for Checkpoint 5 paired replay | open, before Checkpoint 5 | costed at 4–10 days; **not** covered by B5 and needs its own ruling |
 | D11 | Tool content can forge role headers — the template does not escape `<\|eot_id\|>` etc. | open, Checkpoint 3/4 | span provenance must come from the renderer's bookkeeping, never from recognising delimiters in output; add to the Checkpoint 4 injection task set. `PREFLIGHT.md` §3 finding 4 |
 | D12 | SAE ships as `.pth` (torch pickle), off the `safetensors` baseline | open, before Checkpoint 2 | load once under `weights_only=True`, convert to safetensors, hash both, record the conversion in the manifest |

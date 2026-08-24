@@ -3,13 +3,16 @@
 Checkpoint 0 deliverable. Environment survey, model selection, and the exact
 proposed Phase 0 protocol.
 
-Status: **awaiting re-approval.** This document was rewritten on 2026-08-23
-after development moved from a GPU-less, network-restricted session container
-to the human's own laptop. The environment is different in kind, not degree:
-there is now one machine that can do every phase, Hugging Face is reachable,
-and the accelerator is Apple Metal rather than CUDA. Several items that the
-previous revision recorded as blocking are resolved by direct measurement; the
-compute budget is materially worse and needs a fresh ruling.
+Status: **Checkpoint 0 complete; Checkpoint 1 ready to start.** This document
+was rewritten on 2026-08-23 after development moved from a GPU-less,
+network-restricted session container to the human's own laptop. The environment
+is different in kind, not degree: there is now one machine that can do every
+phase, Hugging Face is reachable, and the accelerator is Apple Metal rather
+than CUDA. Several items the previous revision recorded as blocking are
+resolved by direct measurement. Throughput is materially worse than the
+original cost model assumed, and the sweep is restructured and time-boxed
+accordingly. All decisions raised by the move were answered the same day —
+see §11.
 
 No model weights were downloaded. The only durable change made to the machine
 was fetching the pinned tokenizer files (8.7 MB, no weights) in order to verify
@@ -515,6 +518,68 @@ The levers, in the order they should be pulled:
 
 Never cut the safety eval, and never cut arms. Rogue Scalpel is the reason.
 
+### Approved budget — 3 days wall clock
+
+**Decided 2026-08-23: the Phase 0 sweep gets 3 days (~72 h) of otherwise-idle
+laptop time.** That is a real ceiling, not a target, and it sits at the middle
+of the 2–5 day estimate above — so it may bind. What happens when it binds is
+pre-registered below rather than decided in the moment.
+
+Allocation within the 72 h:
+
+| Stage | Allocation |
+| --- | --- |
+| Activation extraction, all 32 layers, 3 concepts | ~5 h |
+| Difference-in-means fits | < 1 h |
+| **Coarse sweep — tranche A** | **~40 h** |
+| Refinement — tranche B | remainder, ~25 h |
+
+Illustrative cell count for the coarse pass, to show where the time actually
+goes. Coarse layers are 10, 12, 14, 16, 18, 20, 22, 24, 26 plus 19 for the SAE
+arm — **10 layers**:
+
+| Arm | Cells | Note |
+| --- | --- | --- |
+| no intervention | **1** | concept- and layer-independent; one baseline, not one per cell |
+| projection ablation | 3 concepts × 10 layers = **30** | |
+| additive steering | 3 × 10 × \|alpha grid\| = **90–150** | **the dominant term** |
+| sham, matched norm | 3 seeds × 10 layers = **30** | |
+| SAE clamping | layer 19 only = **1–5** | plus layer-19 projection, already counted |
+| | **~150–215 cells** | |
+
+At a length-capped decode budget per cell of roughly 40 generations × 128
+tokens, ~5k tokens at 5–10 tok/s is **10–17 min/cell**, giving **25–60 h** for
+the coarse pass. The forward-only metrics are comparatively free. The spread is
+wide because the alpha grid and the per-cell generation count are still
+unfixed — both must be pinned as numbers in `EXPERIMENT_PROTOCOL.md` before
+collection, and **the alpha grid is the single largest multiplier and therefore
+the first thing to shrink** if the arithmetic does not close.
+
+### What gets cut if 72 h binds — pre-registered
+
+Fixed now, before any result is seen, so that truncation is a recorded outcome
+rather than a silent revision:
+
+1. **The sweep must be resumable and must write raw JSONL incrementally**, one
+   record per completed cell. A wall-clock stop must never destroy completed
+   work or leave a partial cell that looks complete.
+2. **Tranche order is load-bearing.** Tranche A — the full coarse pass, *all
+   arms*, including layer 19 and its projection companion — runs to completion
+   first. Refinement is tranche B. A stop at 72 h therefore yields a complete,
+   interpretable coarse sweep rather than a dense band with missing arms.
+3. **If tranche A has not completed at 72 h, stop and report tranche A as far
+   as it got.** Do not recover time by dropping an arm, by dropping the safety
+   eval, or by shortening the generation cap mid-run. Any of those three would
+   trade an honest partial result for a dishonest complete-looking one.
+4. **If tranche A completes early, tranche B runs until 72 h and then stops**,
+   reporting whichever refinement layers finished. Refinement is a
+   nice-to-have; the coarse pass is the deliverable.
+5. **Overrunning 72 h requires a fresh human ruling**, recorded in
+   `DECISIONS.md`. It is not a judgement call for whoever is watching the run.
+
+Checkpoint 5's paired replay is **not** covered by this budget — it was
+estimated separately at 4–10 days and needs its own ruling before it starts.
+
 **No paid compute is provisioned and none will be without explicit
 authorization.** All figures above are for hardware the human already owns;
 the cost is wall-clock time and a warm laptop.
@@ -524,8 +589,9 @@ the cost is wall-clock time and a warm laptop.
 ## 7. Proposed Phase 0 protocol (exact)
 
 Pre-registered in `EXPERIMENT_PROTOCOL.md` before execution. Revised from the
-approved version at steps 4 and 6 to fit the measured throughput; steps 1–3, 7
-and 8 are unchanged.
+originally approved version at steps 4, 6 and 7 to fit the measured throughput,
+with step 8 added for the approved 3-day budget; steps 1–3 and the kill gate
+are unchanged.
 
 1. **Build and freeze contrast sets** C1, C2, C3. Validate schema, enforce the
    matching invariants of §5 including rendered-length matching, split by
@@ -536,11 +602,14 @@ and 8 are unchanged.
    **float32** — MPS has no float64 (§1).
 3. **Fit difference-in-means** per (concept, layer). Record both normalized and
    unnormalized forms explicitly; the manifest states which the bundle carries.
-4. **Layer sweep, coarse then refined.** Coarse pass over **even layers 10–26**;
-   refined pass at ±1 around the best two or three coarse layers. Layer 19 is
-   swept unconditionally regardless of coarse parity, because the SAE arm
-   requires it. Expanding beyond 10–26 is permitted only if the effect is
-   non-monotone at a boundary, and the expansion is logged as a deviation.
+4. **Layer sweep, coarse then refined, in two tranches.** *Tranche A* — the
+   coarse pass over **even layers 10–26**, plus layer 19 unconditionally because
+   the SAE arm requires it, at **every arm**. *Tranche B* — refinement at ±1
+   around the best two or three coarse layers. Tranche A runs to completion
+   before tranche B begins, so that a wall-clock stop leaves a complete coarse
+   sweep rather than a dense band with missing arms (§6). Expanding beyond 10–26
+   is permitted only if the effect is non-monotone at a boundary, and the
+   expansion is logged as a deviation.
 5. **Arms**, at every swept layer:
    - no intervention;
    - projection ablation;
@@ -554,9 +623,16 @@ and 8 are unchanged.
    - *requires decode, length-capped* — structured-output validity; small
      capability probe; **the mandatory safety evaluation — every arm, every
      layer, no exceptions.**
-7. **Write raw JSONL first.** Tables and plots are regenerated from it and are
-   never the source of truth. Confidence intervals, not point estimates.
-8. **Kill gate.** Stop and report if useful suppression requires unacceptable
+7. **Write raw JSONL first, incrementally, one record per completed cell.**
+   The sweep must be resumable: a stop at the 72 h budget must not destroy
+   completed cells or leave a partial cell that reads as complete. Tables and
+   plots are regenerated from the JSONL and are never the source of truth.
+   Confidence intervals, not point estimates.
+8. **Budget stop.** At 72 h, stop under the pre-registered rules in §6 and
+   report what completed. Dropping an arm, dropping the safety eval, or
+   shortening the generation cap mid-run to recover time is prohibited;
+   overrunning the budget requires a fresh ruling recorded in `DECISIONS.md`.
+9. **Kill gate.** Stop and report if useful suppression requires unacceptable
    retain, structured-output, or safety cost. Do not assume the agent loop
    recovers the damage.
 
@@ -713,45 +789,78 @@ proceed, so ordering should be driven by risk rather than by capability:
    nominal order. §3 shows this is where the correctness risk concentrates, the
    tokenizer is available, and it needs no weights. Fixtures can be written
    directly against the findings above.
-3. **Checkpoint 4's determinism acceptance test** — also pulled earlier, on a
-   small model. MPS determinism is unproven (§8 item 14) and a failure would
-   invalidate the paired-replay design in Checkpoint 5. Better to learn that
-   before spending days on a sweep.
-4. **Checkpoint 2** — the expensive one, entered only once the above hold.
+3. **Checkpoint 4's determinism acceptance test** — also pulled earlier, and run
+   on the approved **3B pilot** (§11). MPS determinism is unproven (§8 item 14)
+   and a failure would invalidate the paired-replay design in Checkpoint 5.
+   Better to learn that before spending any of the 72 h sweep budget.
+4. **Checkpoint 2** — the expensive one, entered only once the above hold, and
+   preceded by a 3B dry run of extraction → fit → a two-layer sweep slice so
+   that pipeline bugs are found off-budget rather than inside the 72 h.
 
 ---
 
-## 11. Decisions requested
+## 11. Decisions — answered 2026-08-23
 
-The four Checkpoint 0 decisions were answered on 2026-08-23 and are recorded in
-`DECISIONS.md` §B. Two of them are unaffected by the move; two are reopened by
-it, and one new question arises.
+The four original Checkpoint 0 decisions were answered on 2026-08-23 and are
+recorded in `DECISIONS.md` §B. The three questions reopened or raised by the
+move to this machine were answered the same day. **No Checkpoint 0 decision is
+outstanding.**
 
-**Unaffected, no action needed:** B3 (fit all three concepts, select on held-out
-data) and B4 (include the SAE arm, layer-locked to 19).
+| Question | Ruling |
+| --- | --- |
+| Wall-clock budget for the Phase 0 sweep | **3 days (~72 h)** of otherwise-idle laptop time |
+| Model | **Keep `Llama-3.1-8B-Instruct`.** Capacity is ample and the SAE arm depends on it |
+| 3B pilot | **Approved**, planned into the checkpoint where it belongs rather than run now |
 
-**Reopened:**
+### Budget — 3 days
 
-- **B1 — compute.** The decision as written routes weight-bearing work to "the
-  human's own GPU" in a split environment. That environment no longer exists.
-  The replacement question is a **wall-clock budget** on this laptop: the
-  restructured Phase 0 sweep in §7 is estimated at 2–5 days of near-continuous
-  use, and Checkpoint 5 at several more. Is that acceptable, and is there a cap
-  past which the layer band should be narrowed further?
-- **B2 — model.** The decision stands and its two blocking caveats are resolved
-  (revision SHA, gating access). It is re-surfaced only because the throughput
-  picture changed after it was made. Recommendation: **keep 8B**; capacity is
-  fine and the SAE arm depends on it.
+Recorded as `DECISIONS.md` B5. The allocation, the illustrative cell count, and
+— importantly — the pre-registered rules for what happens if 72 h binds are in
+§6. The short version: the coarse pass runs first at every arm, the sweep is
+resumable and writes JSONL per cell, and a stop at the budget reports a
+complete coarse sweep rather than buying time by dropping an arm, dropping the
+safety eval, or shortening the generation cap. Overrunning needs a fresh
+ruling.
 
-**New:**
+3 days sits mid-range in the 2–5 day estimate, so it may bind. The alpha grid
+is the largest single multiplier in the cell count and is therefore the first
+thing to shrink — as a number fixed in `EXPERIMENT_PROTOCOL.md` before
+collection, never as a mid-run adjustment.
 
-- **Add a 3B pilot?** `meta-llama/Llama-3.2-3B-Instruct` is accessible, shares
-  the Llama 3 template family so every §3 finding transfers, and runs roughly
-  3× faster. Proposal: use it to debug the extraction, sweep, and loop pipelines
-  end to end, and to run the Checkpoint 4 determinism test — then run all
-  reported results on 8B. It has no SAE, so it can never carry a primary
-  result. Cost is a modest amount of extra plumbing; benefit is not discovering
-  a pipeline bug three days into an 8B sweep.
+**Checkpoint 5's paired replay is not covered.** It was costed separately at
+4–10 days and needs its own ruling before it starts.
 
-Nothing past Checkpoint 0 is implemented. Checkpoint 1 is ready to start on
-sign-off.
+### Model — 8B stands
+
+Recorded as `DECISIONS.md` B2, now unqualified: revision pinned, gating access
+confirmed, and the throughput picture reviewed and accepted.
+`Qwen2.5-7B-Instruct` remains the pre-registered replication target if Llama
+access ever becomes an obstacle.
+
+### 3B pilot — approved, placed
+
+Recorded as `DECISIONS.md` B6. `meta-llama/Llama-3.2-3B-Instruct`
+(`0cb88a4f764b7a12671c53f0838cd831a0843b95`, access confirmed) is approved as a
+pilot substrate. It shares the Llama 3 template family, so every §3 finding
+transfers unchanged, and it runs roughly 3× faster.
+
+It is **planned, not run now.** Two placements, both at the checkpoint that
+needs them:
+
+- **Checkpoint 4 — the determinism acceptance test.** MPS determinism is
+  unproven (§8 item 14) and a failure invalidates Checkpoint 5's paired-replay
+  design. The two-runs-byte-identical test is exactly the kind of check that
+  should be cheap and repeated, and it does not care about model quality. This
+  is the primary placement.
+- **Checkpoint 2 — a dry run before the real sweep.** One full pass of
+  extraction → fit → a two-layer slice of the sweep on 3B, to exercise the
+  pipeline end to end before spending any of the 72 h budget on 8B. Its cost
+  comes out of development time, not the sweep budget.
+
+**Hard constraint:** 3B has no matched SAE and is not the pinned model. It
+never carries a reported result, never appears in an effect-size table, and
+never substitutes for an 8B arm. Its outputs are pipeline evidence only, and
+runs against it are tagged as such in their manifests so they cannot be
+confused with primary data later.
+
+Nothing past Checkpoint 0 is implemented. **Checkpoint 1 is ready to start.**
