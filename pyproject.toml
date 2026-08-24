@@ -1,0 +1,32 @@
+[project]
+name = "owie"
+version = "0.0.0"
+description = "Contextual activation suppression in agent loops — measurement harness"
+requires-python = "==3.12.*"
+
+# Pinned exactly. Every version here can change numerical behaviour.
+# See PREFLIGHT.md §9. Checkpoint 1 deliberately depends on nothing that
+# requires model weights.
+dependencies = [
+    "torch==2.13.0",
+    "safetensors==0.8.0",
+    "numpy==2.5.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "hypothesis==6.165.10",
+]
+
+[tool.setuptools]
+packages = ["interventions", "directions"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = ["error::DeprecationWarning"]
