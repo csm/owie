@@ -205,13 +205,19 @@ Tracked here so they are not settled silently by whoever writes the code first.
 | D2 | Activation extraction position — tool-content positions (a), last prompt token (b), or first generated token (c) | open, before Checkpoint 2 | **(a)**; store (b) and (c) as diagnostics. Now cheaply retirable by reading CAST in full — arXiv is reachable. `PREFLIGHT.md` §5 |
 | D3 | Single-layer vs multi-layer band application | open, before Checkpoint 2 | single-layer first, matching the Checkpoint 1 signatures; a band is a pre-registered addition, not a post-hoc knob |
 | D4 | Numeric kill-gate thresholds for retain-set, structured-output, safety | open, before Checkpoint 2 | fix in `EXPERIMENT_PROTOCOL.md` before the sweep |
-| D5 | Boundary-token disposition rule | open, Checkpoint 3 | **now demonstrated to be unavoidable** — a single token spans template and content characters in the most trivial example, and no tokenization separates them. Define one disposition, log every ambiguous token. `PREFLIGHT.md` §3 finding 2 |
+| D5 | Boundary-token disposition rule | **RESOLVED** | select a token on any overlap with tool-content characters and log every mixed-provenance token. This avoids false-negative source coverage while making unavoidable template spillover observable. `docs/SPAN_MAPPING.md` |
 | D6 | Whether tokenizer files may be vendored into this repo | **MOOT** | the tokenizer is fetched directly at the pinned revision; there is nothing to vendor |
-| D7 | `transformers` major version — v5 is current | open, before Checkpoint 3 | **evidence added**: the same template renders different bytes under bare Jinja2 vs `transformers` 5.15.1 (`ensure_ascii` policy). 5.15.1 is verified installable and renders the pinned template; pin only after byte-equality is asserted in a test. `PREFLIGHT.md` §3 finding 6 |
+| D7 | `transformers` major version — v5 is current | **RESOLVED** | pin `transformers==5.15.1`; byte equality with the official pinned template is asserted across Checkpoint 3 fixtures. `tests/test_rendering.py` |
 | D8 | How code reaches the GPU host | **MOOT** | there is no separate host |
 | D9 | Wall-clock budget for the Phase 0 sweep on this machine | **RESOLVED** | 3 days / ~72 h, with pre-registered truncation rules. See B5 |
 | D10 | Whether to add a 3B pilot model | **RESOLVED** | approved as a non-reporting pilot; placed at Checkpoint 4 (determinism) and as a Checkpoint 2 dry run. See B6 |
-| D11 | Tool content can forge role headers — the template does not escape `<\|eot_id\|>` etc. | open, Checkpoint 3/4 | span provenance must come from the renderer's bookkeeping, never from recognising delimiters in output; add to the Checkpoint 4 injection task set. `PREFLIGHT.md` §3 finding 4 |
+| D11 | Tool content can forge role headers — the template does not escape `<\|eot_id\|>` etc. | **Checkpoint 3 resolved; Checkpoint 4 task pending** | provenance is recorded while rendering and never recovered by delimiter recognition; the forged-header fixture proves it remains tool content. Add it to the Checkpoint 4 injection task set. `tests/test_rendering.py` |
 | D12 | SAE ships as `.pth` (torch pickle), off the `safetensors` baseline | open, before Checkpoint 2 | load once under `weights_only=True`, convert to safetensors, hash both, record the conversion in the manifest |
 | D13 | Wall-clock budget for Checkpoint 5 paired replay | open, before Checkpoint 5 | costed at 4–10 days; **not** covered by B5 and needs its own ruling |
 | D14 | `clamp_feature` reads the current coefficient by projection, not through the SAE encoder | open, before the Checkpoint 2 SAE arm | the Checkpoint 1 signature is `clamp_feature(hidden, decoder_direction, value, span_mask)` and was implemented faithfully. A true SAE clamp needs the **encoder** (with bias and nonlinearity) to read the feature activation; projection onto the decoder direction coincides with it only for an orthonormal dictionary, which SAE dictionaries are not. Widening the signature is a pre-registered change, not a quiet fix. Documented in `interventions/kernel.py` |
+
+Checkpoint 3 dependency correction (2026-08-23): the preflight listed
+`tokenizers==0.23.1`, but the approved `transformers==5.15.1` package metadata
+requires `tokenizers<=0.23.0`, and no `0.23.0` release exists in the configured
+index. The resolved exact compatible pin is `tokenizers==0.22.2`;
+the Transformers pin and byte-equality acceptance test remain unchanged.

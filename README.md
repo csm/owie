@@ -19,16 +19,17 @@ credible negative or null results.**
 
 ## Status
 
-**Checkpoint 1 complete.** The pure intervention kernel and the versioned
-direction-bundle format are implemented and tested. No model weights have been
-downloaded and nothing loads a model.
+**Checkpoints 1 and 3 complete.** The pure intervention kernel, versioned
+direction-bundle format, provenance-aware renderer, request-local hook runtime,
+and minimal OpenAI-compatible shim are implemented and tested. Model weights
+are loaded only when `owie-server` is started.
 
 | # | Deliverable | State |
 | --- | --- | --- |
 | 0 | Environment survey, model decision | done — `PREFLIGHT.md`, `DECISIONS.md` |
 | 1 | Intervention kernel, direction-bundle format | **done** |
 | 2 | Phase 0 single-turn experiment | not started |
-| 3 | Provenance-aware shim, renderer, span mapping | not started |
+| 3 | Provenance-aware shim, renderer, span mapping | **done** |
 | 4 | Deterministic ReAct loop | not started |
 | 5 | Paired replay, primary experiment | not started |
 | 6 | External validity | gated on Phase 2 review |
@@ -41,11 +42,9 @@ Requires [`uv`](https://docs.astral.sh/uv/) and Python 3.12.
 uv sync
 ```
 
-That installs `torch`, `safetensors`, and `numpy` plus the dev group. It
-deliberately does **not** install `transformers` or `huggingface_hub`:
-Checkpoint 1's acceptance criterion is that its tests pass without loading a
-model, and the cheapest way to keep that true is for the dependency not to
-exist yet.
+That installs the exact locked numerical and server dependencies. Tests load
+the pinned tokenizer from the local Hugging Face cache but do not load model
+weights.
 
 ## Running the tests
 
@@ -53,7 +52,7 @@ exist yet.
 uv run pytest
 ```
 
-161 tests, about a second, no network and no weights. Tests tagged for Apple
+The suite uses no network and loads no model weights. Tests tagged for Apple
 Metal skip automatically where MPS is unavailable.
 
 Run just one area:
@@ -61,6 +60,23 @@ Run just one area:
 ```bash
 uv run pytest tests/test_kernel.py
 ```
+
+Inspect provenance without loading model weights:
+
+```bash
+uv run inspect-spans --local-files-only request.json
+```
+
+Start the one-worker server after model weights and any direction bundles are
+available locally:
+
+```bash
+uv run owie-server --direction compliance-v1
+```
+
+The HTTP surface is intentionally limited to `GET /v1/models` and
+non-streaming `POST /v1/chat/completions`. See `docs/SPAN_MAPPING.md` for the
+top-level intervention configuration and boundary-token rule.
 
 ## Layout
 
@@ -84,6 +100,7 @@ uv run pytest tests/test_kernel.py
 | `PREFLIGHT.md` | environment, model choice, exact Phase 0 protocol, risks |
 | `DECISIONS.md` | settled decisions, approved deviations, open rulings |
 | `docs/PINS.md` | immutable model, SAE, and dependency identifiers |
+| `docs/SPAN_MAPPING.md` | provenance regions, boundary tokens, runtime positions |
 | `EXPERIMENT_PROTOCOL.md` | frozen arms, datasets, metrics, exclusions — written before Checkpoint 2 collection |
 | `HYSTERESIS_PROTOCOL.md` | the KV-cache experiment — written before Checkpoint 5 |
 

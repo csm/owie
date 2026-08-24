@@ -11,16 +11,27 @@ dependencies = [
     "torch==2.13.0",
     "safetensors==0.8.0",
     "numpy==2.5.2",
+    "transformers==5.15.1",
+    "tokenizers==0.22.2",
+    "accelerate==1.14.0",
+    "fastapi==0.141.1",
+    "pydantic==2.13.4",
+    "uvicorn==0.52.4",
 ]
 
 [dependency-groups]
 dev = [
     "pytest==9.1.1",
     "hypothesis==6.165.10",
+    "httpx==0.28.1",
 ]
 
 [tool.setuptools]
-packages = ["interventions", "directions"]
+packages = ["interventions", "directions", "server"]
+
+[project.scripts]
+inspect-spans = "server.inspect_spans:main"
+owie-server = "server.__main__:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -737,7 +737,7 @@ this machine**: `torch==2.13.0` and `transformers==5.15.1` install on Python
 torch==2.13.0            # VERIFIED: installs, MPS available, bf16 works
 transformers==5.15.1     # VERIFIED: installs; renders pinned template.
                          # Still load-bearing — see §3 finding 6, §8 item 10
-tokenizers==0.23.1
+tokenizers==0.22.2       # corrected at Checkpoint 3; compatible published release
 accelerate==1.14.0
 safetensors==0.8.0
 numpy==2.5.2
