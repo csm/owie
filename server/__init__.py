@@ -23,6 +23,7 @@ from .runtime import (
     InterventionConfig,
     PositionAwareHook,
     RequestState,
+    SAEFeature,
     SerializedGenerationRuntime,
     current_request_state,
     installed_intervention_hook,

@@ -8,6 +8,7 @@ from interventions.kernel import (
     ShapeError,
     add_vector,
     clamp_feature,
+    clamp_sae_feature,
     project_out,
 )
 
@@ -20,4 +21,5 @@ __all__ = [
     "project_out",
     "add_vector",
     "clamp_feature",
+    "clamp_sae_feature",
 ]

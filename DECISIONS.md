@@ -179,6 +179,23 @@ never carries a reported result, never appears in an effect-size table, and
 never substitutes for an 8B arm. Runs against it are tagged as pilot runs in
 their manifests so they cannot later be mistaken for primary data.
 
+### B7. Checkpoint 2 rulings — extraction position, layer scope, thresholds
+
+Decided by Casey Marshall, 2026-08-24. Resolves D2, D3, and D4.
+
+- **D2 — extraction position: (a), tool-content positions.** Fit where the
+  intervention acts. The CAST-style last-prompt position, the first generated
+  token, and a varied-span-only pooling are all captured from the same forward
+  pass and stored as diagnostics, so the departure from precedent stays
+  measurable rather than merely argued.
+- **D3 — single-layer application.** Matches the Checkpoint 1 signatures and
+  the sweep design. A multi-layer band is a pre-registered addition for a later
+  phase; it is explicitly *not* available as a response to a weak single-layer
+  result.
+- **D4 — thresholds drafted, then approved before collection.** The numbers are
+  frozen in `EXPERIMENT_PROTOCOL.md` §7 and were fixed before any Phase 0 cell
+  ran. Changing one after collection is a recorded deviation, not an edit.
+
 ---
 
 ## C. Approved deviations
@@ -202,9 +219,9 @@ Tracked here so they are not settled silently by whoever writes the code first.
 | # | Item | Status | Proposal / resolution |
 | --- | --- | --- | --- |
 | D1 | Model revision SHA pin | **RESOLVED** | `0e9e39f249a16976918f6564b8830bc894c89659`; record in `docs/PINS.md` |
-| D2 | Activation extraction position — tool-content positions (a), last prompt token (b), or first generated token (c) | open, before Checkpoint 2 | **(a)**; store (b) and (c) as diagnostics. Now cheaply retirable by reading CAST in full — arXiv is reachable. `PREFLIGHT.md` §5 |
-| D3 | Single-layer vs multi-layer band application | open, before Checkpoint 2 | single-layer first, matching the Checkpoint 1 signatures; a band is a pre-registered addition, not a post-hoc knob |
-| D4 | Numeric kill-gate thresholds for retain-set, structured-output, safety | open, before Checkpoint 2 | fix in `EXPERIMENT_PROTOCOL.md` before the sweep |
+| D2 | Activation extraction position — tool-content positions (a), last prompt token (b), or first generated token (c) | **RESOLVED** 2026-08-24 | **(a)**, tool-content positions, mean-pooled per row. (b) and (c) are extracted from the same forward pass and stored as diagnostics, along with a varied-span-only pooling. See B7 |
+| D3 | Single-layer vs multi-layer band application | **RESOLVED** 2026-08-24 | **single-layer**. A band is a pre-registered addition for a later phase, never a post-hoc knob. See B7 |
+| D4 | Numeric kill-gate thresholds for retain-set, structured-output, safety | **RESOLVED** 2026-08-24 | numbers frozen in `EXPERIMENT_PROTOCOL.md` §7 before collection. See B7 |
 | D5 | Boundary-token disposition rule | **RESOLVED** | select a token on any overlap with tool-content characters and log every mixed-provenance token. This avoids false-negative source coverage while making unavoidable template spillover observable. `docs/SPAN_MAPPING.md` |
 | D6 | Whether tokenizer files may be vendored into this repo | **MOOT** | the tokenizer is fetched directly at the pinned revision; there is nothing to vendor |
 | D7 | `transformers` major version — v5 is current | **RESOLVED** | pin `transformers==5.15.1`; byte equality with the official pinned template is asserted across Checkpoint 3 fixtures. `tests/test_rendering.py` |
@@ -212,9 +229,9 @@ Tracked here so they are not settled silently by whoever writes the code first.
 | D9 | Wall-clock budget for the Phase 0 sweep on this machine | **RESOLVED** | 3 days / ~72 h, with pre-registered truncation rules. See B5 |
 | D10 | Whether to add a 3B pilot model | **RESOLVED** | approved as a non-reporting pilot; placed at Checkpoint 4 (determinism) and as a Checkpoint 2 dry run. See B6 |
 | D11 | Tool content can forge role headers — the template does not escape `<\|eot_id\|>` etc. | **Checkpoint 3 resolved; Checkpoint 4 task pending** | provenance is recorded while rendering and never recovered by delimiter recognition; the forged-header fixture proves it remains tool content. OpenAI input must use role `tool`; input role `ipython` is rejected so it cannot silently produce an empty primary mask. Add forged headers to the Checkpoint 4 injection task set. `tests/test_rendering.py` |
-| D12 | SAE ships as `.pth` (torch pickle), off the `safetensors` baseline | open, before Checkpoint 2 | load once under `weights_only=True`, convert to safetensors, hash both, record the conversion in the manifest |
+| D12 | SAE ships as `.pth` (torch pickle), off the `safetensors` baseline | **RESOLVED** 2026-08-24 | implemented as proposed in `directions/sae.py`: loaded once under `weights_only=True`, converted to safetensors, both hashed, conversion recorded in the run manifest. The pickle is never loaded again |
 | D13 | Wall-clock budget for Checkpoint 5 paired replay | open, before Checkpoint 5 | costed at 4–10 days; **not** covered by B5 and needs its own ruling |
-| D14 | `clamp_feature` reads the current coefficient by projection, not through the SAE encoder | open, before the Checkpoint 2 SAE arm | the Checkpoint 1 signature is `clamp_feature(hidden, decoder_direction, value, span_mask)` and was implemented faithfully. A true SAE clamp needs the **encoder** (with bias and nonlinearity) to read the feature activation; projection onto the decoder direction coincides with it only for an orthonormal dictionary, which SAE dictionaries are not. Widening the signature is a pre-registered change, not a quiet fix. Documented in `interventions/kernel.py` |
+| D14 | `clamp_feature` reads the current coefficient by projection, not through the SAE encoder | **RESOLVED** 2026-08-24 | a **new** function, `interventions.clamp_sae_feature(hidden, encoder_row, encoder_bias, decoder_column, value, span_mask)`, reads the activation through the encoder with its bias and ReLU. Pre-registered in `EXPERIMENT_PROTOCOL.md` §5 before collection. The Checkpoint 1 `clamp_feature` signature is unchanged and is excluded from the SAE arm |
 
 Checkpoint 3 dependency correction (2026-08-23): the preflight listed
 `tokenizers==0.23.1`, but the approved `transformers==5.15.1` package metadata
