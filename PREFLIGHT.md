@@ -3,7 +3,7 @@
 Checkpoint 0 deliverable. Environment survey, model selection, and the exact
 proposed Phase 0 protocol.
 
-Status: **Checkpoint 0 complete; Checkpoint 1 ready to start.** This document
+Status: **Checkpoint 0 complete. Checkpoint 1 complete** — see `README.md`. This document
 was rewritten on 2026-08-23 after development moved from a GPU-less,
 network-restricted session container to the human's own laptop. The environment
 is different in kind, not degree: there is now one machine that can do every
@@ -773,7 +773,7 @@ carried the split, is gone.
 | # | Deliverable | Acceptance |
 | --- | --- | --- |
 | 0 | This document + `DECISIONS.md` | human sign-off on the revised compute reality and §11 |
-| 1 | Pure intervention kernel, direction-bundle format | all kernel and bundle tests pass **without loading the model** |
+| 1 | Pure intervention kernel, direction-bundle format | **met** — 161 tests pass, and neither `transformers` nor `huggingface_hub` is installed |
 | 2 | Phase 0 single-turn experiment | a layer and intervention with quantified suppression **and** quantified collateral cost; kill gate honoured |
 | 3 | Provenance-aware shim, renderer, span mapping, `inspect-spans` | byte-equality with official template; off ≡ direct model; no cross-request contamination; state cleared on raised error |
 | 4 | Deterministic ReAct loop, 3 fake tool domains | two same-seed no-intervention runs byte-identical modulo documented timing fields |
@@ -784,7 +784,7 @@ Sequencing recommendation, changed by the new environment. Previously
 Checkpoints 1 and 4 were "the ones that can proceed here". Now everything can
 proceed, so ordering should be driven by risk rather than by capability:
 
-1. **Checkpoint 1** — model-free, fast, and unblocked. Immediate next step.
+1. **Checkpoint 1** — model-free, fast, and unblocked. **Done.**
 2. **Checkpoint 3's renderer and span mapping** — pulled *earlier* than the
    nominal order. §3 shows this is where the correctness risk concentrates, the
    tokenizer is available, and it needs no weights. Fixtures can be written
@@ -863,4 +863,4 @@ never substitutes for an 8B arm. Its outputs are pipeline evidence only, and
 runs against it are tagged as such in their manifests so they cannot be
 confused with primary data later.
 
-Nothing past Checkpoint 0 is implemented. **Checkpoint 1 is ready to start.**
+Checkpoint 1 is complete; nothing past it is implemented.
