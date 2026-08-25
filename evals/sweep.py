@@ -526,8 +526,31 @@ def run_sweep(
 
     completed = _completed_keys(results_path)
     cells = list(enumerate_cells(config, state))
-    budget_seconds = config.budget_hours * 3600.0
+
+    # The budget is cumulative across resumptions, not per invocation. A
+    # resumable sweep whose ceiling reset on every restart would let three
+    # resumes of 71 h each "respect" a 72 h budget, which is exactly the
+    # silent overrun B5 forbids without a fresh ruling.
+    prior_hours = 0.0
+    status_path = run_dir / "status.json"
+    if status_path.is_file():
+        try:
+            prior_hours = float(
+                json.loads(status_path.read_text(encoding="utf-8")).get(
+                    "cumulative_hours", 0.0
+                )
+            )
+        except (json.JSONDecodeError, TypeError, ValueError):
+            prior_hours = 0.0
+    budget_seconds = config.budget_hours * 3600.0 - prior_hours * 3600.0
     stopped_early = False
+    if budget_seconds <= 0.0:
+        print(
+            f"budget of {config.budget_hours} h is already spent "
+            f"({prior_hours:.2f} h recorded); not starting. Overrunning "
+            "requires a fresh ruling in DECISIONS.md (B5).",
+            flush=True,
+        )
 
     for index, cell in enumerate(cells, start=1):
         if cell.key in completed:
@@ -566,14 +589,17 @@ def run_sweep(
             flush=True,
         )
 
-    (run_dir / "status.json").write_text(
+    this_run_hours = (time.monotonic() - started) / 3600.0
+    status_path.write_text(
         json.dumps(
             {
                 "tranche": config.tranche,
                 "cells_total": len(cells),
                 "cells_completed": len(_completed_keys(results_path)),
                 "stopped_on_budget": stopped_early,
-                "elapsed_hours": round((time.monotonic() - started) / 3600.0, 4),
+                "elapsed_hours": round(this_run_hours, 4),
+                "cumulative_hours": round(prior_hours + this_run_hours, 4),
+                "budget_hours": config.budget_hours,
                 "sae_exclusion_reason": sae_error,
             },
             indent=2,

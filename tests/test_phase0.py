@@ -445,6 +445,44 @@ def test_budget_stop_leaves_completed_cells_intact(tiny, tmp_path):
     assert not (tmp_path / "results.jsonl").exists()
 
 
+def test_the_budget_is_cumulative_across_resumptions(tiny, tmp_path):
+    """A resumed sweep may not restart its own ceiling (DECISIONS.md B5)."""
+    config = SweepConfig(
+        layers=(1,),
+        alpha_multipliers=(-1.0,),
+        sham_seeds=(11,),
+        max_new_tokens_structured=2,
+        max_new_tokens_capability=2,
+        max_new_tokens_safety=2,
+        include_sae=False,
+        include_additive_sham=False,
+    )
+    run_sweep(tmp_path, config, handle=tiny)
+    status = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    spent = status["cumulative_hours"]
+    assert spent > 0.0
+
+    # Resume under a budget already exhausted by the first pass: nothing new
+    # may run, and the recorded spend must not be reset.
+    exhausted = SweepConfig(
+        layers=(1, 2),
+        alpha_multipliers=(-1.0,),
+        sham_seeds=(11,),
+        max_new_tokens_structured=2,
+        max_new_tokens_capability=2,
+        max_new_tokens_safety=2,
+        include_sae=False,
+        include_additive_sham=False,
+        budget_hours=spent / 2.0,
+    )
+    before = (tmp_path / "results.jsonl").read_text(encoding="utf-8")
+    run_sweep(tmp_path, exhausted, handle=tiny, refit=False)
+    assert (tmp_path / "results.jsonl").read_text(encoding="utf-8") == before
+    resumed = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    assert resumed["stopped_on_budget"] is True
+    assert resumed["cumulative_hours"] >= spent
+
+
 def test_bundles_are_never_overwritten(tiny, small_run):
     from directions import BundleExistsError, read_bundle
 
