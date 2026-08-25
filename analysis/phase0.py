@@ -353,21 +353,43 @@ def build_tables(results: Path) -> dict[str, Any]:
         )
     baseline = baselines[0]
 
-    # Sham reductions first: eligibility is defined against the layer-matched
-    # sham, so every sham cell must be contrasted before any arm is judged.
+    # Sham reductions first: eligibility is defined against the matched sham,
+    # so every sham cell must be contrasted before any arm is judged. A
+    # projection arm is judged against the projection sham at its layer; an
+    # additive arm against the additive sham at the same layer *and the same
+    # alpha*, because the whole question there is whether the norm of the
+    # perturbation explains the effect (DECISIONS.md C3).
     sham_reduction_by_layer: dict[int, float] = {}
+    additive_sham_by_layer_alpha: dict[tuple[int, str], float] = {}
     for cell in cells:
-        if cell.arm != "sham" or cell.layer is None:
+        if cell.layer is None:
             continue
-        reduction = -_contrast(cell, baseline)["injection_margin_delta"]["estimate"]
-        sham_reduction_by_layer[cell.layer] = max(
-            sham_reduction_by_layer.get(cell.layer, float("-inf")), reduction
-        )
+        if cell.arm == "sham":
+            reduction = -_contrast(cell, baseline)["injection_margin_delta"]["estimate"]
+            sham_reduction_by_layer[cell.layer] = max(
+                sham_reduction_by_layer.get(cell.layer, float("-inf")), reduction
+            )
+        elif cell.arm == "additive_sham":
+            alpha = cell.parameter.split(",")[-1]
+            key = (cell.layer, alpha)
+            reduction = -_contrast(cell, baseline)["injection_margin_delta"]["estimate"]
+            additive_sham_by_layer_alpha[key] = max(
+                additive_sham_by_layer_alpha.get(key, float("-inf")), reduction
+            )
 
     rows: list[dict[str, Any]] = []
     for cell in cells:
         contrast = _contrast(cell, baseline)
-        gates = _gates(cell, baseline, contrast, sham_reduction_by_layer)
+        if cell.arm == "additive":
+            controls = {
+                cell.layer: additive_sham_by_layer_alpha.get(
+                    (cell.layer, cell.parameter), float("-inf")
+                )
+            }
+            controls = {k: v for k, v in controls.items() if v != float("-inf")}
+        else:
+            controls = sham_reduction_by_layer
+        gates = _gates(cell, baseline, contrast, controls)
         rows.append(
             {
                 "cell_key": cell.key,
@@ -394,7 +416,7 @@ def build_tables(results: Path) -> dict[str, Any]:
             row["contrast"]["retain_nll_per_token_delta"]["estimate"],
         )
     )
-    sham_rows = [row for row in rows if row["arm"] == "sham"]
+    sham_rows = [row for row in rows if row["arm"] in ("sham", "additive_sham")]
     sham_reduction = (
         max(row["gates"]["margin_reduction"] for row in sham_rows) if sham_rows else None
     )
@@ -427,6 +449,10 @@ def build_tables(results: Path) -> dict[str, Any]:
         "eligible_count": len(eligible),
         "sham_max_margin_reduction": sham_reduction,
         "sham_margin_reduction_by_layer": sham_reduction_by_layer,
+        "additive_sham_margin_reduction_by_layer_alpha": {
+            f"{layer}|{alpha}": value
+            for (layer, alpha), value in sorted(additive_sham_by_layer_alpha.items())
+        },
         "kill_gate_triggered": not eligible,
         "tranche_b_layers": refinement_layers,
     }

@@ -387,7 +387,8 @@ def small_run(tiny, tmp_path_factory) -> Path:
 def test_sweep_writes_one_line_per_cell_with_full_provenance(small_run):
     lines = (small_run / "results.jsonl").read_text(encoding="utf-8").strip().split("\n")
     rows = [json.loads(line) for line in lines]
-    assert len(rows) == 1 + 2 * 3 + 2 * 3 + 2  # none, projection, additive, sham
+    # none, projection, additive, sham, additive sham
+    assert len(rows) == 1 + 2 * 3 + 2 * 3 + 2 + 2
     keys = {row["cell_key"] for row in rows}
     assert len(keys) == len(rows)
     assert any(row["arm"] == "none" for row in rows)
@@ -498,7 +499,9 @@ def _synthetic_cell(
         "arm": arm,
         "concept": "c1",
         "layer": layer,
-        "parameter": "-",
+        # Derived from the key, so alpha-matching of controls is exercised for
+        # real rather than every cell sharing a placeholder parameter.
+        "parameter": key.split("|")[-1],
         "seconds": 1.0,
         "records": {
             "injection": injection,
@@ -563,6 +566,54 @@ def test_an_arm_that_cannot_beat_its_layer_matched_sham_is_not_eligible(tmp_path
     assert row["gates"]["beats_sham"] is False
     assert row["gates"]["eligible"] is False
     assert report["kill_gate_triggered"]
+
+
+def test_additive_arm_is_judged_against_the_alpha_matched_additive_sham(tmp_path):
+    """A projection sham is not a control for an additive arm (DECISIONS.md C3)."""
+    cells = [
+        _synthetic_cell("none|-|-|-", "none", 1.0, 0.0, margin=20.0),
+        _synthetic_cell("additive|c1|14|c=-1.00", "additive", 1.0, 0.0, margin=10.0),
+        # A random vector at the same layer and the same alpha moves it further,
+        # so the effect is the perturbation norm, not the direction.
+        _synthetic_cell(
+            "additive_sham|-|14|seed=11,c=-1.00", "additive_sham", 1.0, 0.0, margin=8.0
+        ),
+        # A projection sham is irrelevant here and must not be used instead.
+        _synthetic_cell("sham|-|14|seed=11", "sham", 1.0, 0.0, margin=19.9),
+    ]
+    report = build_tables(_write_cells(tmp_path, cells))
+    row = [cell for cell in report["cells"] if cell["arm"] == "additive"][0]
+    assert row["gates"]["sham_reduction_same_layer"] == pytest.approx(12.0)
+    assert row["gates"]["beats_sham"] is False
+    assert row["gates"]["eligible"] is False
+
+
+def test_additive_arm_beating_its_matched_sham_is_eligible(tmp_path):
+    cells = [
+        _synthetic_cell("none|-|-|-", "none", 1.0, 0.0, margin=20.0),
+        _synthetic_cell("additive|c1|14|c=-1.00", "additive", 1.0, 0.0, margin=10.0),
+        _synthetic_cell(
+            "additive_sham|-|14|seed=11,c=-1.00", "additive_sham", 1.0, 0.0, margin=18.0
+        ),
+    ]
+    report = build_tables(_write_cells(tmp_path, cells))
+    row = [cell for cell in report["cells"] if cell["arm"] == "additive"][0]
+    assert row["gates"]["beats_sham"] is True
+    assert row["gates"]["eligible"] is True
+
+
+def test_additive_sham_at_a_different_alpha_is_not_the_control(tmp_path):
+    cells = [
+        _synthetic_cell("none|-|-|-", "none", 1.0, 0.0, margin=20.0),
+        _synthetic_cell("additive|c1|14|c=-1.00", "additive", 1.0, 0.0, margin=10.0),
+        _synthetic_cell(
+            "additive_sham|-|14|seed=11,c=-0.50", "additive_sham", 1.0, 0.0, margin=5.0
+        ),
+    ]
+    report = build_tables(_write_cells(tmp_path, cells))
+    row = [cell for cell in report["cells"] if cell["arm"] == "additive"][0]
+    assert row["gates"]["sham_reduction_same_layer"] is None
+    assert row["gates"]["beats_sham"] is True
 
 
 def test_sham_at_another_layer_does_not_gate_this_one(tmp_path):

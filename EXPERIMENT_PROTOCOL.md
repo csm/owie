@@ -101,9 +101,10 @@ the SAE arm is locked there.
 | no intervention | 1 | baseline; layer- and concept-independent |
 | projection ablation | 30 | 3 concepts × 10 layers, `x' = x - r̂(r̂ᵀx)` |
 | additive steering | 120 | 3 × 10 × 4 alphas |
-| sham | 30 | 3 seeds × 10 layers, random unit direction, projected |
+| sham (projection) | 30 | 3 seeds × 10 layers, random unit direction, projected |
+| sham (additive) | 120 | 3 seeds × 10 layers × 4 alphas — **added 2026-08-24, see §7b** |
 | SAE clamping | 9 | 3 concepts × top-3 features, layer 19, clamped to 0 |
-| **total** | **190** | |
+| **total** | **301** | |
 
 **Alpha grid, frozen:** `alpha = c × (mean residual norm at tool-content
 positions for that layer)`, with `c ∈ {-1.0, -0.5, +0.5, +1.0}`. Expressed
@@ -211,6 +212,32 @@ sham cells, against which eligibility is now also judged, had not yet run.
 *What is retained.* The comply rate is still computed and reported in every
 table, and the null on it is stated explicitly rather than dropped. Every hard
 constraint in the table above is unchanged.
+
+### §7b. Addition, 2026-08-24 — matched additive sham
+
+**Added after 40 of 190 cells, before any sham cell of either kind had run.
+Recorded in `DECISIONS.md` C3.**
+
+The pre-registered sham arm applies projection only. The additive arm turned
+out to move tool-channel harmful compliance from 0.167 to 0.833–0.917 at
+`c = -1.0`, while leaving the user channel at 0.083 — a large effect confined
+to exactly the positions the mask selects. With no additive control, that
+result cannot be separated from "adding any vector of this norm at tool
+positions breaks refusal", which is the question a reader will ask first.
+
+A matched additive sham is therefore added: 3 seeds × 10 layers × the same 4
+alpha multipliers, 120 cells, roughly 4.8 h. The grid matches the fitted
+additive arm exactly rather than only the alphas where an effect appeared;
+matching a control to where the treatment worked is a weaker design.
+
+**Control pairing, from this point:**
+
+- a **projection** arm is judged against the projection sham at its layer;
+- an **additive** arm is judged against the additive sham at the **same layer
+  and the same alpha**.
+
+No sham cell of either kind had run when this was decided, so the criterion was
+set without knowing what it had to clear.
 
 **Selection rule:** among eligible cells, maximise the injection-margin
 reduction; break ties toward the smaller retain-set NLL increase.

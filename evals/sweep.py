@@ -73,10 +73,18 @@ COARSE_LAYERS = (10, 12, 14, 16, 18, 19, 20, 22, 24, 26)
 # empirical question, and sweeping one sign would presuppose the answer.
 ALPHA_MULTIPLIERS = (-1.0, -0.5, 0.5, 1.0)
 
-# Sham seeds. Three random directions at matched (unit) norm, projected out
-# exactly as the fitted direction is. Rogue Scalpel found random directions are
-# not inert, so if these move the metrics the primary effect must be reported
-# against sham rather than against no-intervention.
+# Sham seeds. Three random directions at matched (unit) norm. Rogue Scalpel
+# found random directions are not inert, so if these move the metrics the
+# primary effect must be reported against sham rather than against
+# no-intervention.
+#
+# Shams run in **both** modes. The projection sham was pre-registered; the
+# additive sham was added 2026-08-24 as a pre-registered addition (DECISIONS.md
+# C3) once the additive arm turned out to move tool-channel harmful compliance
+# from 0.167 to over 0.9. Without a control at the same alpha, that result
+# cannot be attributed to the fitted direction rather than to the norm of the
+# perturbation, which is the whole question. The grid is matched to the fitted
+# additive arm exactly, so there is no selective matching to argue about.
 SHAM_SEEDS = (11, 22, 33)
 
 # Features clamped in the SAE arm, taken in rank order from the frozen
@@ -99,6 +107,7 @@ class SweepConfig:
     sae_clamp_features: int = SAE_CLAMP_FEATURES
     tranche: str = "A"
     include_sae: bool = True
+    include_additive_sham: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -199,6 +208,13 @@ def enumerate_cells(config: SweepConfig, state: SweepState) -> Iterator[Cell]:
     for layer in config.layers:
         for seed in config.sham_seeds:
             yield Cell("sham", None, layer, f"seed={seed}")
+    if config.include_additive_sham:
+        for layer in config.layers:
+            for seed in config.sham_seeds:
+                for multiplier in config.alpha_multipliers:
+                    yield Cell(
+                        "additive_sham", None, layer, f"seed={seed},c={multiplier:+.2f}"
+                    )
     if config.include_sae and state.sae is not None:
         for concept in CONCEPTS:
             for rank in range(config.sae_clamp_features):
@@ -244,6 +260,30 @@ def _cell_hook(state: SweepState, cell: Cell, config: SweepConfig) -> tuple[Any,
         return _hook_factory(state, intervention, bundle.vector), {
             "mode": "add",
             "direction_id": bundle.manifest.direction_id,
+            "alpha_multiplier": multiplier,
+            "alpha": alpha,
+            "mean_residual_norm": state.residual_norms[cell.layer],
+        }
+
+    if cell.arm == "additive_sham":
+        seed_part, alpha_part = cell.parameter.split(",")
+        seed = int(seed_part.split("=")[1])
+        multiplier = float(alpha_part.split("=")[1])
+        vector = _sham_direction(state.handle.d_model, seed)
+        alpha = multiplier * state.residual_norms[cell.layer]
+        intervention = InterventionConfig(
+            enabled=True,
+            direction_id=f"sham-{seed}",
+            layer=cell.layer,
+            mode="add",
+            scope="tool_content",
+            direction_norm="unit",
+            alpha=alpha,
+        )
+        return _hook_factory(state, intervention, vector), {
+            "mode": "add",
+            "direction_id": f"sham-{seed}",
+            "sham_seed": seed,
             "alpha_multiplier": multiplier,
             "alpha": alpha,
             "mean_residual_norm": state.residual_norms[cell.layer],
@@ -562,6 +602,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--device", default=None)
     parser.add_argument("--data-root", type=Path, default=None)
     parser.add_argument("--no-sae", action="store_true")
+    parser.add_argument("--no-additive-sham", action="store_true")
     args = parser.parse_args(argv)
 
     config = SweepConfig(
@@ -569,6 +610,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         layers=tuple(args.layers) if args.layers else COARSE_LAYERS,
         tranche=args.tranche,
         include_sae=not args.no_sae,
+        include_additive_sham=not args.no_additive_sham,
     )
     path = run_sweep(
         args.run_dir,

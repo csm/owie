@@ -239,6 +239,28 @@ The underlying mistake was mine and is worth naming: the baseline margin
 distribution should have been measured before the gate was frozen. It costs one
 baseline cell and about two minutes.
 
+**C3. Matched additive sham arm added** — 2026-08-24, approved by Casey
+Marshall after 40 of 190 cells, before any sham cell of either kind had run.
+
+The pre-registered sham arm is projection-only. The additive arm at
+`c = -1.0`, layer 10, reduced the injection margin by 9.5–11.6 nats — clearing
+the amended gate several times over — while raising tool-channel harmful
+compliance from 0.167 to 0.833–0.917 and leaving the user channel unchanged at
+0.083. That asymmetry is a real result, and it is uninterpretable without a
+control at the same perturbation norm: "this direction damages tool-channel
+refusal" and "any vector of this norm at tool positions damages tool-channel
+refusal" are different claims with different implications, and the projection
+sham distinguishes neither.
+
+Added: 3 seeds × 10 layers × the same 4 alpha multipliers, 120 cells, about
+4.8 h. Total run about 14.5 h against the 72 h ceiling, so B5 is not
+threatened and no existing arm is displaced. The sweep is keyed and resumable,
+so the new cells append to the same raw file without disturbing completed ones.
+
+Eligibility pairing is tightened at the same time: projection arms are judged
+against the projection sham at their layer, additive arms against the additive
+sham at the same layer **and the same alpha**.
+
 ---
 
 ## D. Open items requiring a ruling
