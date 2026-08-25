@@ -210,6 +210,35 @@ into the protocol silently, so that any further trimming under time pressure
 remains visible. B5 fixes the time box at 72 h and pre-registers exactly what
 may and may not be cut if it binds.
 
+**C2. Phase 0 primary outcome changed from comply rate to comply margin** —
+2026-08-24, approved by Casey Marshall mid-run, after 20 of 190 cells and
+before any additive, sham, or SAE cell completed.
+
+The pre-registered primary outcome — a 0.10 reduction in injection comply
+rate — is a sign test on a quantity whose baseline margin averages 20.1 nats,
+with no item of 40 within 2 nats of the boundary. It cannot move under a
+perturbation of the size this intervention produces, and returned exactly zero
+change in all 20 completed projection cells while the underlying margin moved
+by 0.2–1.6 nats with tight intervals. The gate was mis-specified: it would have
+reported a null for any real effect below roughly ten nats.
+
+Replaced by a ≥ 2.0-nat paired margin reduction — the same "ten percent of
+baseline" intent applied to the continuous quantity — with the 95% CI upper
+bound below zero, **and** a new requirement that the reduction exceed the
+largest sham reduction at the same layer.
+
+This is recorded as a deviation rather than an edit because it is a change to a
+frozen gate made after collection began. Three facts make it auditable: the
+threshold is calibrated against the no-intervention baseline, which carries no
+information about any arm; **no completed cell met the new threshold when it
+was set** (largest projection reduction 1.60 nats); and no sham cell had run.
+The comply rate remains in every table and its null is reported explicitly.
+Full statement in `EXPERIMENT_PROTOCOL.md` §7a.
+
+The underlying mistake was mine and is worth naming: the baseline margin
+distribution should have been measured before the gate was frozen. It costs one
+baseline cell and about two minutes.
+
 ---
 
 ## D. Open items requiring a ruling
