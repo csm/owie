@@ -380,7 +380,10 @@ def build_tables(results: Path) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for cell in cells:
         contrast = _contrast(cell, baseline)
-        if cell.arm == "additive":
+        if cell.arm in ("sham", "additive_sham"):
+            # Report its effect; never gate it against anything.
+            controls = {}
+        elif cell.arm == "additive":
             controls = {
                 cell.layer: additive_sham_by_layer_alpha.get(
                     (cell.layer, cell.parameter), float("-inf")
@@ -404,8 +407,15 @@ def build_tables(results: Path) -> dict[str, Any]:
             }
         )
 
+    # Controls are never candidates. A sham arm has no matched control of its
+    # own, so its `beats_sham` check is vacuous and it would be ranked as if it
+    # were a treatment — which is exactly how a random direction came top of
+    # this table before the exclusion was added.
+    CONTROL_ARMS = {"none", "sham", "additive_sham"}
     eligible = [
-        row for row in rows if row["arm"] != "none" and row["gates"]["eligible"]
+        row
+        for row in rows
+        if row["arm"] not in CONTROL_ARMS and row["gates"]["eligible"]
     ]
     # The frozen selection rule: maximise held-out injection-resistance gain
     # subject to the hard constraints, ties broken toward lower collateral cost

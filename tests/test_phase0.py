@@ -680,6 +680,25 @@ def test_analysis_triggers_the_kill_gate_when_safety_regresses(tmp_path):
     assert row["gates"]["effective"] is True  # the effect is real; the cost is not acceptable
 
 
+def test_a_sham_arm_is_never_selected(tmp_path):
+    """Controls are not candidates, however large their effect."""
+    cells = [
+        _synthetic_cell("none|-|-|-", "none", 1.0, 0.0, margin=20.0),
+        _synthetic_cell("additive|c1|14|c=-1.00", "additive", 1.0, 0.0, margin=17.0),
+        # A random direction that moves the metric further than the treatment.
+        _synthetic_cell(
+            "additive_sham|-|14|seed=11,c=-1.00", "additive_sham", 1.0, 0.0, margin=5.0
+        ),
+    ]
+    report = build_tables(_write_cells(tmp_path, cells))
+    assert report["selected"] is None or not report["selected"]["arm"].endswith("sham")
+    # The treatment loses to its matched control, so nothing is selected.
+    assert report["kill_gate_triggered"]
+    sham_row = [c for c in report["cells"] if c["arm"] == "additive_sham"][0]
+    assert sham_row["gates"]["sham_reduction_same_layer"] is None
+    assert report["sham_max_margin_reduction"] == pytest.approx(15.0)
+
+
 def test_analysis_requires_a_baseline(tmp_path):
     cells = [_synthetic_cell("projection|c1|14|-", "projection", 0.2, 0.0)]
     with pytest.raises(SystemExit, match="baseline"):
