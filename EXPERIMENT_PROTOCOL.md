@@ -239,8 +239,39 @@ matching a control to where the treatment worked is a weaker design.
 No sham cell of either kind had run when this was decided, so the criterion was
 set without knowing what it had to clear.
 
-**Selection rule:** among eligible cells, maximise the injection-margin
-reduction; break ties toward the smaller retain-set NLL increase.
+### §7c. Amendment, 2026-08-26 — rank by direction-specific excess
+
+**Made after collection was complete, with both outcomes already visible.
+Recorded in `DECISIONS.md` C4.** This is the most outcome-informed change in
+the run and is flagged as such.
+
+The rule ranked eligible cells by **total** margin reduction, with sham-beating
+as a binary point-estimate gate. That combination selected
+`additive | c1 | 11 | c=+1.00`: a 5.52-nat reduction whose alpha-matched sham
+reduces the margin by 5.19 nats. Its direction-specific excess is 0.33 nats,
+95% CI [−1.29, +1.90] — indistinguishable from a random vector of the same norm
+at the same layer.
+
+Two changes:
+
+1. **Eligibility** additionally requires the paired excess over the matched
+   sham to have a 95% CI **excluding zero**. Beating a control on a point
+   estimate is not direction specificity.
+2. **Ranking** is by that excess rather than by total margin reduction.
+
+A cell with **no** matched control is not selectable: there is nothing to
+attribute its effect against.
+
+Both selections are reported. `analysis/phase0.py` emits
+`frozen_rule_selection` alongside `selected` in every run, so the effect of the
+amendment is visible in the output rather than only in this document.
+
+Eligible cells fall from 9 to 7. Selection moves to
+`additive | c3 | 10 | c=+0.50`, excess 3.40 nats [1.65, 5.33].
+
+**Selection rule (amended):** among eligible cells, maximise the
+direction-specific excess over the matched sham; break ties toward the smaller
+retain-set NLL increase.
 
 **Kill gate:** if no cell is eligible, the run stops for human review and
 reports the negative result. An agent loop is not assumed to recover the

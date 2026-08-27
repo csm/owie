@@ -261,6 +261,35 @@ Eligibility pairing is tightened at the same time: projection arms are judged
 against the projection sham at their layer, additive arms against the additive
 sham at the same layer **and the same alpha**.
 
+**C4. Selection ranks direction-specific excess, not total suppression** —
+2026-08-26, approved by Casey Marshall after collection was complete.
+
+**This amendment was made with both outcomes already visible, and is the most
+outcome-informed decision in the project.** It is recorded in full for that
+reason.
+
+The selection rule ranked by total injection-margin reduction and treated
+sham-beating as a binary comparison of point estimates. Applied to the complete
+460-cell run it selected `additive | c1 | 11 | c=+1.00` — 5.52 nats of
+suppression against an alpha-matched sham of 5.19 nats, a direction-specific
+excess of 0.33 nats with a 95% CI of [−1.29, +1.90]. The rule's winner was a
+cell the experiment cannot distinguish from a random perturbation.
+
+Amended so that eligibility requires the paired excess over the matched sham to
+have a CI excluding zero, and ranking is by that excess. An arm with no matched
+control is not selectable at all. Eligible cells fall from 9 to 7; selection
+moves to `additive | c3 | 10 | c=+0.50`, excess 3.40 nats [1.65, 5.33].
+
+What makes this auditable despite being outcome-informed: the change is a
+**tightening** in every direction — it removes cells from eligibility and adds
+a significance requirement, and cannot admit anything the frozen rule excluded.
+The pre-amendment selection is computed and published in every run as
+`frozen_rule_selection`, so a reader sees both without consulting this file.
+
+The mistake was mine. A ranking that adds a control as a binary gate but ranks
+on the uncontrolled quantity will always be exploitable by a large enough
+perturbation, and that was foreseeable when §7a promoted sham to a gate.
+
 ---
 
 ## D. Open items requiring a ruling

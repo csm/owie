@@ -568,6 +568,8 @@ def test_analysis_selects_on_margin_not_rate(tmp_path):
         _synthetic_cell(
             "projection|c1|14|-", "projection", comply=1.0, safety_comply=0.0, margin=15.0
         ),
+        # A matched control is now required for candidacy (DECISIONS.md C4).
+        _synthetic_cell("sham|-|14|seed=11", "sham", 1.0, 0.0, margin=19.8),
     ]
     report = build_tables(_write_cells(tmp_path, cells))
     assert not report["kill_gate_triggered"]
@@ -654,7 +656,12 @@ def test_additive_sham_at_a_different_alpha_is_not_the_control(tmp_path):
     assert row["gates"]["beats_sham"] is True
 
 
-def test_sham_at_another_layer_does_not_gate_this_one(tmp_path):
+def test_sham_at_another_layer_is_not_this_cell_s_control(tmp_path):
+    """An unmatched sham neither gates a cell nor supplies its control.
+
+    A cell with no same-layer sham is not selectable at all: there is nothing
+    to attribute its effect against (DECISIONS.md C4).
+    """
     cells = [
         _synthetic_cell("none|-|-|-", "none", 1.0, 0.0, margin=20.0),
         _synthetic_cell("projection|c1|14|-", "projection", 1.0, 0.0, margin=15.0),
@@ -662,8 +669,11 @@ def test_sham_at_another_layer_does_not_gate_this_one(tmp_path):
     ]
     report = build_tables(_write_cells(tmp_path, cells))
     row = [cell for cell in report["cells"] if cell["arm"] == "projection"][0]
-    assert row["gates"]["beats_sham"] is True
-    assert not report["kill_gate_triggered"]
+    assert row["gates"]["beats_sham"] is True  # nothing at layer 14 contradicts it
+    assert row["excess_over_sham"] is None
+    assert row["matched_sham_cell"] is None
+    assert report["eligible_count"] == 0
+    assert report["kill_gate_triggered"]
 
 
 def test_analysis_triggers_the_kill_gate_when_safety_regresses(tmp_path):
@@ -678,6 +688,50 @@ def test_analysis_triggers_the_kill_gate_when_safety_regresses(tmp_path):
     row = [cell for cell in report["cells"] if cell["arm"] == "projection"][0]
     assert row["gates"]["checks"]["safety"]["pass"] is False
     assert row["gates"]["effective"] is True  # the effect is real; the cost is not acceptable
+
+
+def test_selection_ranks_by_excess_over_sham_not_total_reduction(tmp_path):
+    """DECISIONS.md C4: a big effect a random vector reproduces does not win."""
+    cells = [
+        _synthetic_cell("none|-|-|-", "none", 1.0, 0.0, margin=20.0),
+        # Large total reduction, almost all of it reproduced by its sham.
+        _synthetic_cell("additive|c1|11|c=+1.00", "additive", 1.0, 0.0, margin=14.0),
+        _synthetic_cell(
+            "additive_sham|-|11|seed=11,c=+1.00", "additive_sham", 1.0, 0.0, margin=14.4,
+            layer=11,
+        ),
+        # Smaller total reduction, nearly all of it direction-specific.
+        _synthetic_cell("additive|c3|10|c=+0.50", "additive", 1.0, 0.0, margin=16.0,
+                        layer=10),
+        _synthetic_cell(
+            "additive_sham|-|10|seed=11,c=+0.50", "additive_sham", 1.0, 0.0, margin=19.5,
+            layer=10,
+        ),
+    ]
+    report = build_tables(_write_cells(tmp_path, cells))
+    assert report["selected"]["cell_key"] == "additive|c3|10|c=+0.50"
+    assert report["frozen_rule_selection"] == "additive|c1|11|c=+1.00"
+
+
+def test_an_excess_interval_spanning_zero_is_not_eligible(tmp_path):
+    """Beating a sham on a point estimate alone is not direction specificity."""
+    import random
+
+    rng = random.Random(0)
+    base = _synthetic_cell("none|-|-|-", "none", 1.0, 0.0, margin=20.0)
+    arm = _synthetic_cell("additive|c1|11|c=+1.00", "additive", 1.0, 0.0, margin=14.0,
+                          layer=11)
+    sham = _synthetic_cell("additive_sham|-|11|seed=11,c=+1.00", "additive_sham",
+                           1.0, 0.0, margin=14.0, layer=11)
+    # Give arm and sham the same mean but heavy per-item scatter, so the
+    # paired excess straddles zero.
+    for record in arm["records"]["injection"]:
+        record["margin"] = 14.0 + rng.uniform(-6, 6)
+    for record in sham["records"]["injection"]:
+        record["margin"] = 14.0 + rng.uniform(-6, 6)
+    report = build_tables(_write_cells(tmp_path, [base, arm, sham]))
+    assert report["eligible_count"] == 0
+    assert report["kill_gate_triggered"]
 
 
 def test_a_sham_arm_is_never_selected(tmp_path):
