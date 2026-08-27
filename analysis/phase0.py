@@ -196,6 +196,28 @@ def load_cells(path: Path) -> list[CellSummary]:
     return cells
 
 
+def excess_over_sham(
+    cell: CellSummary, sham: CellSummary | None, baseline: CellSummary
+) -> dict[str, float] | None:
+    """Paired bootstrap on (sham margin - arm margin), per item.
+
+    The gate compares two point estimates, which cannot distinguish a fitted
+    direction that genuinely outperforms its control from one that edges past
+    it inside the noise. This is the same quantity with an interval on it:
+    positive means the fitted direction suppresses more than a random vector of
+    the same norm at the same layer, and a CI containing zero means the run
+    cannot tell them apart. Reported for every arm that has a matched control.
+    """
+    if sham is None:
+        return None
+    arm = _by_id(cell.raw["records"]["injection"], "margin")
+    control = _by_id(sham.raw["records"]["injection"], "margin")
+    keys = sorted(set(arm) & set(control))
+    if not keys:
+        return None
+    return _bootstrap_paired([control[k] for k in keys], [arm[k] for k in keys])
+
+
 def _contrast(cell: CellSummary, baseline: CellSummary) -> dict[str, Any]:
     """Paired differences against the no-intervention baseline, with intervals."""
     arm_records = cell.raw["records"]
@@ -319,6 +341,7 @@ def _gates(
     # compliance.
     sham_reduction = (sham_reduction_by_layer or {}).get(cell.layer)
     beats_sham = sham_reduction is None or margin_reduction > sham_reduction
+    is_control = cell.arm in ("none", "sham", "additive_sham")
 
     effective = (
         margin_reduction >= THRESHOLDS["injection_margin_reduction_min"]
@@ -335,7 +358,14 @@ def _gates(
         "sham_reduction_same_layer": sham_reduction,
         "beats_sham": beats_sham,
         "effective": effective,
-        "eligible": all(check["pass"] for check in checks.values()) and effective,
+        # A control is never eligible. Its effect is reported; it is not a
+        # candidate, and carrying a True flag here made the raw artifact read
+        # as though random directions had qualified.
+        "eligible": (
+            not is_control
+            and all(check["pass"] for check in checks.values())
+            and effective
+        ),
     }
 
 
@@ -361,21 +391,23 @@ def build_tables(results: Path) -> dict[str, Any]:
     # perturbation explains the effect (DECISIONS.md C3).
     sham_reduction_by_layer: dict[int, float] = {}
     additive_sham_by_layer_alpha: dict[tuple[int, str], float] = {}
+    sham_cell_by_layer: dict[int, CellSummary] = {}
+    additive_sham_cell: dict[tuple[int, str], CellSummary] = {}
     for cell in cells:
         if cell.layer is None:
             continue
         if cell.arm == "sham":
             reduction = -_contrast(cell, baseline)["injection_margin_delta"]["estimate"]
-            sham_reduction_by_layer[cell.layer] = max(
-                sham_reduction_by_layer.get(cell.layer, float("-inf")), reduction
-            )
+            if reduction > sham_reduction_by_layer.get(cell.layer, float("-inf")):
+                sham_reduction_by_layer[cell.layer] = reduction
+                sham_cell_by_layer[cell.layer] = cell
         elif cell.arm == "additive_sham":
             alpha = cell.parameter.split(",")[-1]
             key = (cell.layer, alpha)
             reduction = -_contrast(cell, baseline)["injection_margin_delta"]["estimate"]
-            additive_sham_by_layer_alpha[key] = max(
-                additive_sham_by_layer_alpha.get(key, float("-inf")), reduction
-            )
+            if reduction > additive_sham_by_layer_alpha.get(key, float("-inf")):
+                additive_sham_by_layer_alpha[key] = reduction
+                additive_sham_cell[key] = cell
 
     rows: list[dict[str, Any]] = []
     for cell in cells:
@@ -393,6 +425,13 @@ def build_tables(results: Path) -> dict[str, Any]:
         else:
             controls = sham_reduction_by_layer
         gates = _gates(cell, baseline, contrast, controls)
+        if cell.arm == "additive":
+            matched = additive_sham_cell.get((cell.layer, cell.parameter))
+        elif cell.arm in ("none", "sham", "additive_sham"):
+            matched = None
+        else:
+            matched = sham_cell_by_layer.get(cell.layer)
+        excess = excess_over_sham(cell, matched, baseline)
         rows.append(
             {
                 "cell_key": cell.key,
@@ -404,6 +443,8 @@ def build_tables(results: Path) -> dict[str, Any]:
                 "point": cell.point,
                 "contrast": contrast,
                 "gates": gates,
+                "excess_over_sham": excess,
+                "matched_sham_cell": matched.key if matched is not None else None,
             }
         )
 
