@@ -19,7 +19,12 @@ credible negative or null results.**
 
 ## Status
 
-**Checkpoints 1, 2, and 3 complete.** The pure intervention kernel, versioned
+**Checkpoints 1, 2, and 3 complete.** Phase 0 has collected: 460 cells across
+five arms and fifteen layers. Headline in `EXPERIMENT_PROTOCOL.md` §11 terms —
+projection ablation is direction-specific but an order of magnitude too small
+to be useful; large additive steering is mostly a perturbation-norm effect that
+random directions reproduce, including its safety damage; a moderate-alpha
+additive cell survives its matched control with no measurable collateral cost. The pure intervention kernel, versioned
 direction-bundle format, provenance-aware renderer, request-local hook runtime,
 minimal OpenAI-compatible shim, and the full Phase 0 pipeline — frozen contrast
 sets, activation extraction, difference-in-means fitting, the layer sweep, and
@@ -30,7 +35,7 @@ the analysis — are implemented and tested. Model weights are loaded only when
 | --- | --- | --- |
 | 0 | Environment survey, model decision | done — `PREFLIGHT.md`, `DECISIONS.md` |
 | 1 | Intervention kernel, direction-bundle format | **done** |
-| 2 | Phase 0 single-turn experiment | **pipeline done**, protocol frozen, sweep running |
+| 2 | Phase 0 single-turn experiment | **done** — 460 cells, 16.2 h; see `runs/` and `analysis/phase0.md` |
 | 3 | Provenance-aware shim, renderer, span mapping | **done** |
 | 4 | Deterministic ReAct loop | not started |
 | 5 | Paired replay, primary experiment | not started |

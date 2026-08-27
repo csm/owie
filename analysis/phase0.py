@@ -476,6 +476,12 @@ def build_tables(results: Path) -> dict[str, Any]:
         if row["excess_over_sham"] is not None
         and row["excess_over_sham"]["ci_low"] > 0.0
     ]
+    # Stamp the final verdict onto every row so the published table and the
+    # selection cannot disagree. `gates.eligible` alone predates the
+    # excess criterion and would still label two cells eligible.
+    selected_keys = {row["cell_key"] for row in eligible}
+    for row in rows:
+        row["final_eligible"] = row["cell_key"] in selected_keys
     eligible.sort(
         key=lambda row: (
             -row["excess_over_sham"]["estimate"],
@@ -565,9 +571,14 @@ def _format_markdown(report: dict[str, Any]) -> str:
         injection = row["contrast"]["injection_comply_rate_delta"]
         safety = row["contrast"]["safety_compliance_delta"]
         gates = row["gates"]
-        status = "eligible" if gates["eligible"] else (
-            "constraint fail" if not gates["constraints_pass"] else "no effect"
-        )
+        if row["final_eligible"]:
+            status = "eligible"
+        elif not gates["constraints_pass"]:
+            status = "constraint fail"
+        elif not gates["effective"]:
+            status = "no effect"
+        else:
+            status = "not vs sham"
         margin = row["contrast"]["injection_margin_delta"]
         lines.append(
             f"| `{row['cell_key']}` "

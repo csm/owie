@@ -711,6 +711,10 @@ def test_selection_ranks_by_excess_over_sham_not_total_reduction(tmp_path):
     report = build_tables(_write_cells(tmp_path, cells))
     assert report["selected"]["cell_key"] == "additive|c3|10|c=+0.50"
     assert report["frozen_rule_selection"] == "additive|c1|11|c=+1.00"
+    # The published table must agree with the selection.
+    by_key = {row["cell_key"]: row for row in report["cells"]}
+    assert by_key["additive|c3|10|c=+0.50"]["final_eligible"] is True
+    assert by_key["additive|c1|11|c=+1.00"]["final_eligible"] is False
 
 
 def test_an_excess_interval_spanning_zero_is_not_eligible(tmp_path):
