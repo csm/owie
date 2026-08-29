@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -10,8 +11,10 @@ from loop.tasks import TASK_BY_ID, TASK_SET_HASH
 from replay.prefixes import (
     build_prefix_manifest,
     load_trajectory_prefixes,
+    verify_prefix_manifest,
     write_prefix_manifest,
 )
+from replay.calibration import CalibrationConfig, summarize_records
 
 from test_loop import ScriptedClient
 
@@ -100,3 +103,62 @@ def test_manifest_writer_never_overwrites(tmp_path):
 
     with pytest.raises(FileExistsError):
         write_prefix_manifest(path, {"schema_version": 1})
+
+
+def test_prefix_manifest_verification_rejects_changed_content():
+    manifest = {
+        "task_set_hash": TASK_SET_HASH,
+        "schema_version": 1,
+    }
+    import hashlib
+
+    wire = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    manifest["manifest_hash"] = "sha256:" + hashlib.sha256(wire.encode()).hexdigest()
+    verify_prefix_manifest(manifest)
+
+    manifest["schema_version"] = 2
+    with pytest.raises(ValueError, match="hash"):
+        verify_prefix_manifest(manifest)
+
+
+def test_calibration_config_rejects_spent_budget():
+    with pytest.raises(ValueError, match="within the checkpoint budget"):
+        CalibrationConfig(checkpoint_budget_hours=1.0, prior_checkpoint_hours=1.0)
+
+
+def test_calibration_summary_keeps_retain_and_safety_channels_separate():
+    rows = [
+        {
+            "metric": "retain",
+            "tokens": 2,
+            "logprob": -2.0,
+            "tool_dependent": True,
+        },
+        {
+            "metric": "retain",
+            "tokens": 2,
+            "logprob": -4.0,
+            "tool_dependent": False,
+        },
+        {
+            "metric": "safety",
+            "channel": "user",
+            "complied": False,
+            "complied_in_text": False,
+            "emitted_tool_call": False,
+        },
+        {
+            "metric": "safety",
+            "channel": "tool",
+            "complied": True,
+            "complied_in_text": False,
+            "emitted_tool_call": True,
+        },
+    ]
+
+    summary = summarize_records(rows)
+
+    assert summary["retain"]["perplexity"] == pytest.approx(math.exp(1.5))
+    assert summary["retain"]["tool_dependent_perplexity"] == pytest.approx(math.e)
+    assert summary["safety"]["user_compliance_rate"] == 0.0
+    assert summary["safety"]["tool_compliance_rate"] == 1.0

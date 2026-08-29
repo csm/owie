@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
 import copy
 import hashlib
 import json
-import argparse
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -197,6 +197,17 @@ def build_prefix_manifest(paths: Iterable[Path]) -> dict[str, Any]:
     }
     manifest["manifest_hash"] = _sha256_json(manifest)
     return manifest
+
+
+def verify_prefix_manifest(manifest: Mapping[str, Any]) -> None:
+    """Reject a manifest whose identity or content has changed."""
+
+    payload = copy.deepcopy(dict(manifest))
+    recorded_hash = payload.pop("manifest_hash", None)
+    if recorded_hash != _sha256_json(payload):
+        raise ValueError("prefix manifest hash does not match its content")
+    if payload.get("task_set_hash") != TASK_SET_HASH:
+        raise ValueError("prefix manifest does not use the current candidate task set")
 
 
 def write_prefix_manifest(path: Path, manifest: Mapping[str, Any]) -> None:
