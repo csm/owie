@@ -1,7 +1,7 @@
 # HANDOFF
 
-State of the project as of **2026-08-28**, after Checkpoint 5 baseline
-calibration began. Written for whoever picks this up next, including a future me with
+State of the project as of **2026-08-29**, after the Checkpoint 5 baseline and
+paired-replay protocol were frozen. Written for whoever picks this up next, including a future me with
 no memory of the run.
 
 Read `doc/TODO.md` first — it is the assignment and the source of every settled
@@ -19,10 +19,10 @@ replacement for either.
 | 2 | **Phase 0 single-turn experiment** | **done — 460 cells, 16.2 h, results below** |
 | 3 | Provenance-aware shim, renderer, span mapping | done |
 | 4 | Deterministic ReAct loop | **done — normalized 3B pilot trajectories are byte-identical** |
-| 5 | Paired replay, primary experiment | in progress; six-day budget approved, baseline calibration not frozen |
+| 5 | Paired replay, primary experiment | in progress; baseline and protocol frozen, collection not started |
 | 6 | External validity | gated on Phase 2 review |
 
-263 tests pass (`uv run pytest`). No test loads model weights; where a forward
+283 tests pass (`uv run pytest`). No test loads model weights; where a forward
 pass is unavoidable a tiny randomly-initialized Llama with the pinned tokenizer
 stands in.
 
@@ -191,14 +191,18 @@ See `CHECKPOINT4.md` for the failed attempt and the complete result.
    this a non-reporting determinism pilot, not a model-quality result.
 2. **D13 is resolved at six days / 144 h.** The ceiling is cumulative across
    baseline probes and collection. See `DECISIONS.md` B8.
-3. **Expand the Checkpoint 5 candidate task set.** The version-5 probe has a
-   non-degenerate attack rate, but three tasks cannot support thresholds.
-4. **Add retain perplexity and both safety channels at replay prefixes.** These
-   baseline quantities remain unmeasured. See `CHECKPOINT5_BASELINE.md`.
-5. **Freeze the paired-replay protocol after the expanded baseline.** The
-   operational cache protocol is already frozen in `HYSTERESIS_PROTOCOL.md`.
-6. **Then implement Checkpoint 5 paired replay.** Do not start primary
-   collection until tasks, arms, metrics, exclusions, and thresholds are frozen.
+3. **Expanded baseline is complete.** The 12-task neutral baseline has 3/8
+   attack success and 8/12 task success. See `CHECKPOINT5_BASELINE.md`.
+4. **Retain and safety calibration is complete.** The current revision exactly
+   reproduced the Phase 0 baseline values on 48 items.
+5. **The paired-replay protocol is frozen.** See `PAIRED_REPLAY_PROTOCOL.md`.
+   The prefix and arm-grid hashes are fixed there.
+6. **Finish the pre-collection acceptance tests.** Exact-prefix resume,
+   frozen-arm collection, SAE service, sham creation, resumption, and the
+   budget stop are implemented. Arm-wise retain and safety execution, paired
+   bootstrap analysis, and direct tiny-model acceptance remain.
+7. **Then start Checkpoint 5 primary collection.** Do not start while any
+   acceptance item in `PAIRED_REPLAY_PROTOCOL.md` section 11 is incomplete.
 
 Open rulings still outstanding are in `DECISIONS.md` §D. No ruling blocks the
 next baseline step. The protocol gates still block primary collection.

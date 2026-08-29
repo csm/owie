@@ -267,9 +267,9 @@ def test_frozen_arm_grid_matches_the_protocol():
     assert next(
         arm for arm in FROZEN_ARMS if arm.arm_id == "additive_c3"
     ).intervention["alpha"] == ADDITIVE_ALPHA
-    assert next(
-        arm for arm in FROZEN_ARMS if arm.arm_id == "sae_c1_rank0"
-    ).intervention["feature_index"] == 1584
+    sae_arm = next(arm for arm in FROZEN_ARMS if arm.arm_id == "sae_c1_rank0")
+    assert sae_arm.intervention["direction_id"].endswith("feature-1584")
+    assert sae_arm.intervention["mode"] == "clamp_sae"
 
 
 def test_primary_collection_resumes_without_duplicate_records(tmp_path):

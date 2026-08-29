@@ -4,9 +4,11 @@ from .api import ChatCompletionRequest, InterventionRequest, create_app
 from .backend import (
     BackendCompletion,
     RegisteredDirection,
+    RegisteredSAEFeature,
     TransformersBackend,
     encode_tool_call,
     hash_direction_bundle,
+    registered_sham,
 )
 from .rendering import (
     MODEL_ID,
@@ -40,6 +42,7 @@ __all__ = [
     "InterventionRequest",
     "PositionAwareHook",
     "RegisteredDirection",
+    "RegisteredSAEFeature",
     "RenderError",
     "RenderedChat",
     "RequestState",
@@ -50,6 +53,7 @@ __all__ = [
     "encode_tool_call",
     "installed_intervention_hook",
     "hash_direction_bundle",
+    "registered_sham",
     "load_pinned_tokenizer",
     "render_characters",
     "render_chat",

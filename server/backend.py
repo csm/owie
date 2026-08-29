@@ -12,7 +12,7 @@ from typing import Any, Mapping
 import torch
 
 from .rendering import RenderedChat
-from .runtime import RequestState, installed_intervention_hook
+from .runtime import SAEFeature, RequestState, installed_intervention_hook
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,32 @@ class RegisteredDirection:
     normalization: str
     hook_point: str = "resid_post"
     bundle_hash: str | None = None
+
+
+@dataclass(frozen=True)
+class RegisteredSAEFeature:
+    feature: SAEFeature
+    layer: int
+    artifact_hash: str
+
+
+def registered_sham(seed: int, d_model: int, *, layer: int) -> RegisteredDirection:
+    """Create one Phase 0-compatible seeded random unit direction."""
+
+    if d_model < 1 or layer < 0:
+        raise ValueError("sham dimension must be positive and layer non-negative")
+    generator = torch.Generator().manual_seed(seed)
+    vector = torch.randn(d_model, generator=generator, dtype=torch.float32)
+    vector = vector / vector.norm()
+    digest = hashlib.sha256()
+    digest.update(f"seed={seed}\0d_model={d_model}\0layer={layer}\0".encode())
+    digest.update(vector.numpy().tobytes())
+    return RegisteredDirection(
+        vector=vector,
+        layer=layer,
+        normalization="unit",
+        bundle_hash=f"sha256:{digest.hexdigest()}",
+    )
 
 
 def hash_direction_bundle(path: Path) -> str:
@@ -108,10 +134,12 @@ class TransformersBackend:
         tokenizer: Any,
         *,
         directions: Mapping[str, RegisteredDirection] | None = None,
+        sae_features: Mapping[str, RegisteredSAEFeature] | None = None,
     ) -> None:
         self.model = model
         self.tokenizer = tokenizer
         self.directions = dict(directions or {})
+        self.sae_features = dict(sae_features or {})
 
     def complete(
         self, rendered: RenderedChat, request: Any, state: RequestState
@@ -120,28 +148,48 @@ class TransformersBackend:
         hook_context: Any = nullcontext()
         direction_bundle_hash: str | None = None
         if config.enabled:
-            try:
-                registered = self.directions[config.direction_id or ""]
-            except KeyError as exc:
-                raise ValueError(f"unknown direction_id {config.direction_id!r}") from exc
-            if config.layer != registered.layer:
-                raise ValueError(
-                    f"direction {config.direction_id!r} was fitted at layer "
-                    f"{registered.layer}, not requested layer {config.layer}"
+            if config.mode == "clamp_sae":
+                try:
+                    registered_sae = self.sae_features[config.direction_id or ""]
+                except KeyError as exc:
+                    raise ValueError(
+                        f"unknown SAE feature {config.direction_id!r}"
+                    ) from exc
+                if config.layer != registered_sae.layer:
+                    raise ValueError(
+                        f"SAE feature {config.direction_id!r} belongs at layer "
+                        f"{registered_sae.layer}, not requested layer {config.layer}"
+                    )
+                direction_bundle_hash = registered_sae.artifact_hash
+                hook_context = installed_intervention_hook(
+                    self.model, state, None, registered_sae.feature
                 )
-            if config.direction_norm != registered.normalization:
-                raise ValueError(
-                    f"direction {config.direction_id!r} has manifest normalization "
-                    f"{registered.normalization!r}, not {config.direction_norm!r}"
+            else:
+                try:
+                    registered = self.directions[config.direction_id or ""]
+                except KeyError as exc:
+                    raise ValueError(
+                        f"unknown direction_id {config.direction_id!r}"
+                    ) from exc
+                if config.layer != registered.layer:
+                    raise ValueError(
+                        f"direction {config.direction_id!r} was fitted at layer "
+                        f"{registered.layer}, not requested layer {config.layer}"
+                    )
+                if config.direction_norm != registered.normalization:
+                    raise ValueError(
+                        f"direction {config.direction_id!r} has manifest normalization "
+                        f"{registered.normalization!r}, not {config.direction_norm!r}"
+                    )
+                if registered.hook_point != "resid_post":
+                    raise ValueError(
+                        f"direction {config.direction_id!r} was fitted at hook point "
+                        f"{registered.hook_point!r}; this server supports only 'resid_post'"
+                    )
+                direction_bundle_hash = registered.bundle_hash
+                hook_context = installed_intervention_hook(
+                    self.model, state, registered.vector
                 )
-            if registered.hook_point != "resid_post":
-                raise ValueError(
-                    f"direction {config.direction_id!r} was fitted at hook point "
-                    f"{registered.hook_point!r}; this server supports only 'resid_post'"
-                )
-            direction = registered.vector
-            direction_bundle_hash = registered.bundle_hash
-            hook_context = installed_intervention_hook(self.model, state, direction)
 
         device = next(self.model.parameters()).device
         input_ids = torch.tensor([rendered.input_ids], dtype=torch.long, device=device)

@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import argparse
 import json
+import platform
+import sys
 import time
 from dataclasses import asdict, dataclass
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from directions.bundle import current_git_revision
-from loop.runner import ChatClient
+from loop.runner import ChatClient, OpenAIHTTPClient
+from loop.tasks import TASK_BY_ID
 from replay.arms import FROZEN_ARMS, FROZEN_SEEDS, frozen_arm_hash
 from replay.prefixes import load_trajectory_prefixes
 from replay.runner import Continuation, ReplayArm, ReplayConfig, continuation_id, resume
@@ -28,6 +33,16 @@ class CollectionConfig:
             raise ValueError("prior_checkpoint_hours must be within the checkpoint budget")
         if self.max_steps < 1:
             raise ValueError("max_steps must be positive")
+
+
+def _dependencies() -> dict[str, str]:
+    packages: dict[str, str] = {}
+    for name in ("torch", "transformers", "tokenizers", "safetensors", "numpy"):
+        try:
+            packages[name] = version(name)
+        except Exception:  # pragma: no cover - absence is recorded
+            packages[name] = "unavailable"
+    return packages
 
 
 def _write_json(path: Path, value: Mapping[str, Any], *, replace: bool) -> None:
@@ -98,6 +113,8 @@ def collect_primary(
         prefixes.append(step_zero[0])
     if len({prefix.task_id for prefix in prefixes}) != len(prefixes):
         raise ValueError("primary trajectories must contain unique tasks")
+    if tuple(arms) == FROZEN_ARMS and {prefix.task_id for prefix in prefixes} != set(TASK_BY_ID):
+        raise ValueError("frozen primary collection requires every candidate task")
 
     manifest = {
         "schema_version": 1,
@@ -121,6 +138,20 @@ def collect_primary(
         "arms": [asdict(arm) for arm in arms],
         "seeds": list(seeds),
         "frozen_arm_hash": frozen_arm_hash() if tuple(arms) == FROZEN_ARMS else None,
+        "frozen_artifacts": {
+            "prefix_manifest_hash": "sha256:b38dee512862caa80bfd7f6525b516e4f801bae1adf7fc02f705878681fe5c18",
+            "c1_vector_hash": "sha256:b9484622f01d453daba92ff92e2901e24f9695e0b880297413253e0171a2be72",
+            "c3_vector_hash": "sha256:c418b98cb21498b5e0cc3bac4c1189bd97df014b97db930afb0c2e4f43817eb7",
+            "sae_selection_hash": "sha256:2de8241291dc5504f71abb7926ca2e83f9a04ae9a8bc6618b31f3d6e1493eab2",
+            "sae_weights_hash": "sha256:5223dd47c15704c036fef4cbec5feb45355e4b60db7676a4e4e80f1d62cec66d",
+        },
+        "dependencies": _dependencies(),
+        "python": sys.version,
+        "platform": {
+            "machine": platform.machine(),
+            "platform": platform.platform(),
+            "processor": platform.processor(),
+        },
     }
     if manifest_path.is_file():
         if json.loads(manifest_path.read_text(encoding="utf-8")) != manifest:
@@ -197,3 +228,31 @@ def collect_primary(
         replace=True,
     )
     return results_path
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--run-dir", type=Path, required=True)
+    parser.add_argument("--base-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--budget-hours", type=float, default=144.0)
+    parser.add_argument(
+        "--prior-hours",
+        type=float,
+        default=CollectionConfig.prior_checkpoint_hours,
+    )
+    parser.add_argument("trajectories", nargs="+", type=Path)
+    args = parser.parse_args(argv)
+    collect_primary(
+        args.run_dir,
+        args.trajectories,
+        OpenAIHTTPClient(args.base_url),
+        CollectionConfig(
+            checkpoint_budget_hours=args.budget_hours,
+            prior_checkpoint_hours=args.prior_hours,
+        ),
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -21,7 +21,7 @@ class InterventionRequest(BaseModel):
     enabled: bool = False
     direction_id: str | None = None
     layer: int | None = None
-    mode: Literal["project", "add"] = "project"
+    mode: Literal["project", "add", "clamp_sae"] = "project"
     scope: Literal["tool_content", "whole_tool_block"] = "tool_content"
     direction_norm: Literal["unit", "raw"] = "unit"
     alpha: float = 0.0

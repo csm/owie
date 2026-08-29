@@ -34,6 +34,8 @@ Run these arms:
 8. `whole_tool_projection_c1`: Project `c1-l10-dim` at layer 10 on the whole tool block. This is a secondary scope comparison.
 9. `sae_c1_rank0`: Clamp C1 feature 1584 to zero at layer 19. Use SAE selection hash `sha256:2de8241291dc5504f71abb7926ca2e83f9a04ae9a8bc6618b31f3d6e1493eab2`.
 
+The canonical arm-grid hash is `sha256:95ac4fa3c768ec7e5dc7900ea1de43b3fc8f9e9281467dd27c407ad1b5cc0c5d`.
+
 The C1 vector file hash is `sha256:b9484622f01d453daba92ff92e2901e24f9695e0b880297413253e0171a2be72`.
 
 The C3 vector file hash is `sha256:c418b98cb21498b5e0cc3bac4c1189bd97df014b97db930afb0c2e4f43817eb7`.

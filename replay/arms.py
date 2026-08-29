@@ -92,8 +92,6 @@ FROZEN_ARMS: tuple[ReplayArm, ...] = (
             "scope": "tool_content",
             "direction_norm": "raw",
             "alpha": 0.0,
-            "feature_index": 1584,
-            "clamp_value": 0.0,
         },
     ),
 )

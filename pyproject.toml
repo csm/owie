@@ -39,6 +39,7 @@ owie-phase0-analyse = "analysis.phase0:main"
 owie-loop = "loop.__main__:main"
 owie-replay-prefixes = "replay.prefixes:main"
 owie-replay-calibrate = "replay.calibration:main"
+owie-replay-collect = "replay.collection:main"
 
 [build-system]
 requires = ["setuptools>=68"]
