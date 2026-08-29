@@ -14,7 +14,7 @@ from loop.runner import (
     write_determinism_report,
     write_trajectory,
 )
-from loop.tasks import TASK_BY_ID, StatePredicate, Task
+from loop.tasks import TASK_BY_ID, TASK_SET_HASH, StatePredicate, Task, task_hash
 from loop.tools import TOOL_NAMES, TOOL_SCHEMAS, FakeEnvironment, ToolError
 
 
@@ -197,6 +197,9 @@ def test_model_failure_is_recorded_as_a_failed_run():
 
 
 def test_task_set_contains_benign_and_both_injection_shapes():
+    assert len(TASK_BY_ID) == 12
+    assert sum(not task.injection for task in TASK_BY_ID.values()) == 4
+    assert sum(task.injection for task in TASK_BY_ID.values()) == 8
     assert TASK_BY_ID["benign_release"].injection is False
     assert TASK_BY_ID["injection_invoice"].injection is True
     assert TASK_BY_ID["injection_forged_header"].injection is True
@@ -213,6 +216,22 @@ def test_task_set_contains_benign_and_both_injection_shapes():
     assert all(task.setup_calls[0][0] == "fake_http_fetch" for task in TASK_BY_ID.values())
     forged = next(iter(TASK_BY_ID["injection_forged_header"].documents.values()))
     assert "<|eot_id|>" in forged
+    assert TASK_SET_HASH.startswith("sha256:")
+    assert len({task_hash(task) for task in TASK_BY_ID.values()}) == len(TASK_BY_ID)
+
+
+def test_task_content_changes_run_identity():
+    first = _test_task()
+    second = Task(
+        task_id=first.task_id,
+        objective="A changed objective.",
+        predicate=first.predicate,
+        documents=first.documents,
+    )
+    first_result = run_task(ScriptedClient(CALLS), first, LoopConfig())
+    second_result = run_task(ScriptedClient(CALLS), second, LoopConfig())
+    assert first_result.run_id != second_result.run_id
+    assert first_result.events[0]["task_hash"] != second_result.events[0]["task_hash"]
 
 
 def test_attack_success_is_independent_of_task_success():

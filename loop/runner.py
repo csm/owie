@@ -18,7 +18,7 @@ import torch
 
 from server.rendering import MODEL_ID, MODEL_REVISION
 
-from .tasks import Task, system_prompt
+from .tasks import TASK_BY_ID, TASK_SET_HASH, Task, system_prompt, task_hash
 from .tools import TOOL_SCHEMAS, ToolError
 
 
@@ -85,6 +85,7 @@ def _canonical_json(value: Any) -> str:
 def _run_id(task: Task, config: LoopConfig) -> str:
     identity = {
         "task_id": task.task_id,
+        "task_hash": task_hash(task),
         "seed": config.seed,
         "model_revision": config.model_revision,
         "direction_revision": config.direction_revision,
@@ -154,6 +155,13 @@ def run_task(client: ChatClient, task: Task, config: LoopConfig) -> RunResult:
         {
             "event": "run_start",
             "task_id": task.task_id,
+            "task_hash": task_hash(task),
+            "candidate_task_set_hash": (
+                TASK_SET_HASH
+                if task.task_id in TASK_BY_ID
+                and task_hash(task) == task_hash(TASK_BY_ID[task.task_id])
+                else None
+            ),
             "run_id": run_id,
             "seed": config.seed,
             "run_kind": config.run_kind,
