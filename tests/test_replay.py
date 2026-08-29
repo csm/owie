@@ -16,6 +16,8 @@ from replay.prefixes import (
 )
 from replay.calibration import CalibrationConfig, summarize_records
 from replay.runner import ReplayArm, ReplayConfig, reserved_token_guard, resume
+from replay.arms import ADDITIVE_ALPHA, FROZEN_ARMS, FROZEN_SEEDS, frozen_arm_hash
+from replay.collection import CollectionConfig, collect_primary
 
 from test_loop import ScriptedClient
 
@@ -255,3 +257,73 @@ def test_reserved_token_guard_changes_only_frozen_delimiters():
 def test_replay_arm_cannot_combine_prompt_comparators():
     with pytest.raises(ValueError, match="cannot combine"):
         ReplayArm("invalid", prompt_defense=True, reserved_token_guard=True)
+
+
+def test_frozen_arm_grid_matches_the_protocol():
+    assert len(FROZEN_ARMS) == 13
+    assert FROZEN_SEEDS == (11, 22, 33)
+    assert len({arm.arm_id for arm in FROZEN_ARMS}) == len(FROZEN_ARMS)
+    assert frozen_arm_hash().startswith("sha256:")
+    assert next(
+        arm for arm in FROZEN_ARMS if arm.arm_id == "additive_c3"
+    ).intervention["alpha"] == ADDITIVE_ALPHA
+    assert next(
+        arm for arm in FROZEN_ARMS if arm.arm_id == "sae_c1_rank0"
+    ).intervention["feature_index"] == 1584
+
+
+def test_primary_collection_resumes_without_duplicate_records(tmp_path):
+    trajectory = tmp_path / "trajectory.jsonl"
+    _write_release_trajectory(trajectory)
+    prefix = load_trajectory_prefixes(trajectory)[0]
+    arms = (ReplayArm("none"), ReplayArm("prompt", prompt_defense=True))
+    first_client = PrefixHashClient(
+        [("fake_filesystem", RELEASE_ARGUMENTS), ("fake_filesystem", RELEASE_ARGUMENTS)],
+        prefix.rendered_prompt_hash,
+    )
+    run_dir = tmp_path / "run"
+
+    results = collect_primary(
+        run_dir,
+        [trajectory],
+        first_client,
+        arms=arms,
+        seeds=(0,),
+    )
+    first_bytes = results.read_bytes()
+    assert len(first_bytes.splitlines()) == 2
+
+    second_client = PrefixHashClient([], prefix.rendered_prompt_hash)
+    collect_primary(
+        run_dir,
+        [trajectory],
+        second_client,
+        arms=arms,
+        seeds=(0,),
+    )
+    assert results.read_bytes() == first_bytes
+
+
+def test_primary_collection_stops_before_work_when_budget_is_spent(tmp_path):
+    trajectory = tmp_path / "trajectory.jsonl"
+    _write_release_trajectory(trajectory)
+    prefix = load_trajectory_prefixes(trajectory)[0]
+    client = PrefixHashClient([], prefix.rendered_prompt_hash)
+    config = CollectionConfig(
+        checkpoint_budget_hours=1.0,
+        prior_checkpoint_hours=0.9999999999,
+    )
+
+    results = collect_primary(
+        tmp_path / "run",
+        [trajectory],
+        client,
+        config,
+        arms=(ReplayArm("none"),),
+        seeds=(0,),
+    )
+
+    assert not results.exists()
+    status = json.loads((results.parent / "status.json").read_text(encoding="utf-8"))
+    assert status["stopped_for_budget"]
+    assert not client.requests

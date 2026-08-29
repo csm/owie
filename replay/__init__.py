@@ -7,7 +7,16 @@ from .prefixes import (
     verify_prefix_manifest,
     write_prefix_manifest,
 )
-from .runner import Continuation, ReplayArm, ReplayConfig, reserved_token_guard, resume
+from .runner import (
+    Continuation,
+    ReplayArm,
+    ReplayConfig,
+    continuation_id,
+    reserved_token_guard,
+    resume,
+)
+from .arms import FROZEN_ARMS, FROZEN_SEEDS, frozen_arm_hash
+from .collection import CollectionConfig, collect_primary
 
 __all__ = [
     "ReplayPrefix",
@@ -18,6 +27,12 @@ __all__ = [
     "Continuation",
     "ReplayArm",
     "ReplayConfig",
+    "continuation_id",
     "reserved_token_guard",
     "resume",
+    "FROZEN_ARMS",
+    "FROZEN_SEEDS",
+    "frozen_arm_hash",
+    "CollectionConfig",
+    "collect_primary",
 ]

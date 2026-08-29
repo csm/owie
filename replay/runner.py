@@ -127,7 +127,9 @@ def _parse_call(response: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, 
     return copy.deepcopy(call), arguments
 
 
-def _continuation_id(prefix: ReplayPrefix, arm: ReplayArm, seed: int) -> str:
+def continuation_id(
+    prefix: ReplayPrefix, arm: ReplayArm, seed: int, max_steps: int
+) -> str:
     identity = {
         "prefix_id": prefix.prefix_id,
         "arm_id": arm.arm_id,
@@ -135,6 +137,7 @@ def _continuation_id(prefix: ReplayPrefix, arm: ReplayArm, seed: int) -> str:
         "prompt_defense": arm.prompt_defense,
         "reserved_token_guard": arm.reserved_token_guard,
         "seed": seed,
+        "max_steps": max_steps,
     }
     return "continuation_" + hashlib.sha256(_canonical_json(identity).encode()).hexdigest()[:20]
 
@@ -303,7 +306,7 @@ def _run_one(prefix: ReplayPrefix, config: ReplayConfig, seed: int) -> Continuat
         }
     )
     return Continuation(
-        continuation_id=_continuation_id(prefix, config.arm, seed),
+        continuation_id=continuation_id(prefix, config.arm, seed, config.max_steps),
         prefix_id=prefix.prefix_id,
         task_id=prefix.task_id,
         step_k=prefix.step,
