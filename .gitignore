@@ -5,4 +5,16 @@ __pycache__/
 .pytest_cache/
 .hypothesis/
 .DS_Store
+# Run directories are working space: uncompressed raw JSONL, 96 unpacked
+# direction bundles, and regenerable analysis. Ignored by default.
 runs/
+# The archived deliverables of a completed run are committed, because
+# re-deriving them costs 16 h of laptop compute. See HANDOFF.md §6.
+!runs/*/results.jsonl.gz
+!runs/*/directions.tar.gz
+!runs/*/diagnostics.tar.gz
+!runs/*/manifest.json
+!runs/*/status.json
+!runs/*/sae_features.json
+!runs/*/analysis/phase0.md
+!runs/*/extraction/

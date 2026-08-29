@@ -1,0 +1,85 @@
+{
+  "dataset_hashes": {
+    "capability": "sha256:60fc786a25acb513691fd2cf56bc62867d43d7129557e6144660d7f69e9a7ff8",
+    "contrasts/c1": "sha256:59f14fb81e6942e41ea35841a624d9426f7f565f8300bf02a3337c0abc610890",
+    "contrasts/c2": "sha256:9d1af67687e200a4d22b16873cfc03bf9fa47f984d86f2e3f6be52cf09c9c031",
+    "contrasts/c3": "sha256:0daa0592b71fe78fbec887471bff0da138fc445dae2a01ccc7c1c2559f720f2b",
+    "injection": "sha256:2fceff1de24b005fea59506114a251fe779192216823fe102fc8d82ce5502c8c",
+    "retain": "sha256:703f0b6f756e986ec6d3bbb409a7381a17d25e4afe40f86148b289f78af920b2",
+    "safety": "sha256:76139a547b86cd2f5cf6cf966af1c7d4c869fc832a41e987334c1d9aef80565a",
+    "structured": "sha256:2beec0df7ad080786bf8fa2420ca3dafa41680ae39cc1463d18392142dba96e7"
+  },
+  "dependencies": {
+    "numpy": "2.5.2",
+    "safetensors": "0.8.0",
+    "tokenizers": "0.22.2",
+    "torch": "2.13.0",
+    "transformers": "5.15.1"
+  },
+  "git_revision": "b107c51a626b613ca8bb4ee7d027deba351e7e72",
+  "hook_point": "resid_post",
+  "model": {
+    "d_model": 4096,
+    "device": "mps",
+    "dtype": "bfloat16",
+    "hook_point": "resid_post",
+    "is_pilot": false,
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+    "n_layers": 32
+  },
+  "platform": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "processor": "arm"
+  },
+  "python": "3.12.12 (main, Oct  9 2025, 11:07:00) [Clang 17.0.0 (clang-1700.6.3.2)]",
+  "residual_norms_by_layer": {
+    "11": 7.0532,
+    "13": 8.208,
+    "15": 9.8063,
+    "17": 12.4749,
+    "9": 6.431
+  },
+  "run_id": "phase0-2026-08-24",
+  "sae": {
+    "conversion": "torch.load(weights_only=True) -> safetensors, once",
+    "d_model": 4096,
+    "layer": 19,
+    "n_features": 65536,
+    "repo": "Goodfire/Llama-3.1-8B-Instruct-SAE-l19",
+    "revision": "f6775a221e47b44233af4bac2c7b65189265519a",
+    "safetensors_hash": "sha256:5223dd47c15704c036fef4cbec5feb45355e4b60db7676a4e4e80f1d62cec66d",
+    "source_pth_hash": "sha256:bbdc6fad591d3d420e8859dcb6eefa4ec642026090f7f39a963b1c0f27290e4f"
+  },
+  "sae_exclusion_reason": null,
+  "sweep_config": {
+    "alpha_multipliers": [
+      -1.0,
+      -0.5,
+      0.5,
+      1.0
+    ],
+    "budget_hours": 72.0,
+    "include_additive_sham": true,
+    "include_sae": true,
+    "layers": [
+      9,
+      11,
+      13,
+      15,
+      17
+    ],
+    "max_new_tokens_capability": 48,
+    "max_new_tokens_safety": 96,
+    "max_new_tokens_structured": 96,
+    "sae_clamp_features": 3,
+    "sham_seeds": [
+      11,
+      22,
+      33
+    ],
+    "tranche": "B"
+  },
+  "torch_device": "mps"
+}
