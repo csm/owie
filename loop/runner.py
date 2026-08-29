@@ -18,7 +18,7 @@ import torch
 
 from server.rendering import MODEL_ID, MODEL_REVISION
 
-from .tasks import SYSTEM_PROMPT, Task
+from .tasks import Task, system_prompt
 from .tools import TOOL_SCHEMAS, ToolError
 
 
@@ -63,6 +63,7 @@ class LoopConfig:
     max_steps: int = 8
     max_tokens: int = 256
     run_kind: str = "primary"
+    prompt_defense: bool = True
 
     def __post_init__(self) -> None:
         if self.max_steps < 1 or self.max_tokens < 1:
@@ -89,6 +90,7 @@ def _run_id(task: Task, config: LoopConfig) -> str:
         "direction_revision": config.direction_revision,
         "intervention": config.intervention,
         "run_kind": config.run_kind,
+        "prompt_defense": config.prompt_defense,
     }
     return "run_" + hashlib.sha256(_canonical_json(identity).encode()).hexdigest()[:20]
 
@@ -142,7 +144,10 @@ def run_task(client: ChatClient, task: Task, config: LoopConfig) -> RunResult:
     run_id = _run_id(task, config)
     environment = task.environment()
     messages: list[dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "system",
+            "content": system_prompt(prompt_defense=config.prompt_defense),
+        },
         {"role": "user", "content": task.objective},
     ]
     events: list[dict[str, Any]] = [
@@ -155,6 +160,7 @@ def run_task(client: ChatClient, task: Task, config: LoopConfig) -> RunResult:
             "model": {"id": config.model_id, "revision": config.model_revision},
             "direction_revision": config.direction_revision,
             "intervention": copy.deepcopy(config.intervention),
+            "prompt_defense": config.prompt_defense,
             "determinism": seeds,
             "excluded_timing_fields": [
                 "model_step.latency_ms",
@@ -164,6 +170,38 @@ def run_task(client: ChatClient, task: Task, config: LoopConfig) -> RunResult:
             "initial_environment": environment.snapshot(),
         }
     ]
+    for setup_index, (name, arguments) in enumerate(task.setup_calls):
+        canonical_arguments = _canonical_json(arguments)
+        call_id = "setup_" + hashlib.sha256(
+            f"{task.task_id}\0{setup_index}\0{name}\0{canonical_arguments}".encode()
+        ).hexdigest()[:20]
+        call = {
+            "id": call_id,
+            "type": "function",
+            "function": {"name": name, "arguments": canonical_arguments},
+        }
+        messages.append({"role": "assistant", "content": None, "tool_calls": [call]})
+        execution = environment.execute(name, arguments)
+        events.append(
+            {
+                "event": "setup_tool_step",
+                "setup_index": setup_index,
+                "tool_call_id": call_id,
+                "tool_name": name,
+                "tool_input": execution.arguments,
+                "tool_output": execution.output,
+                "environment_before": execution.state_before,
+                "environment_after": execution.state_after,
+            }
+        )
+        messages.append(
+            {
+                "role": "tool",
+                "name": name,
+                "tool_call_id": call_id,
+                "content": _canonical_json(execution.output),
+            }
+        )
     success = False
     stop_reason = "max_steps"
     for step in range(config.max_steps):
@@ -256,12 +294,29 @@ def run_task(client: ChatClient, task: Task, config: LoopConfig) -> RunResult:
             }
         )
         check = task.predicate.evaluate(environment)
-        events.append({"event": "success_check", "step": step, **check})
+        attack_check = (
+            task.attack_predicate.evaluate(environment)
+            if task.attack_predicate is not None
+            else None
+        )
+        events.append(
+            {
+                "event": "success_check",
+                "step": step,
+                **check,
+                "attack_check": attack_check,
+            }
+        )
         if check["passed"]:
             success = True
             stop_reason = "success_predicate"
             break
     final_check = task.predicate.evaluate(environment)
+    final_attack_check = (
+        task.attack_predicate.evaluate(environment)
+        if task.attack_predicate is not None
+        else None
+    )
     success = success or final_check["passed"]
     events.append(
         {
@@ -271,6 +326,10 @@ def run_task(client: ChatClient, task: Task, config: LoopConfig) -> RunResult:
             "success": success,
             "stop_reason": stop_reason,
             "success_check": final_check,
+            "attack_success": bool(
+                final_attack_check and final_attack_check["passed"]
+            ),
+            "attack_check": final_attack_check,
             "final_environment": environment.snapshot(),
         }
     )

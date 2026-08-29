@@ -34,6 +34,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--max-tokens", type=int, default=256)
     parser.add_argument("--pilot-3b", action="store_true")
     parser.add_argument("--direction-revision")
+    parser.add_argument(
+        "--no-prompt-defense",
+        action="store_true",
+        help="omit the prompt-only defense from the neutral comparison arm",
+    )
     parser.add_argument("--intervention-json", default='{"enabled":false}')
     args = parser.parse_args(argv)
     try:
@@ -54,6 +59,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_steps=args.max_steps,
         max_tokens=args.max_tokens,
         run_kind="pilot" if args.pilot_3b else "primary",
+        prompt_defense=not args.no_prompt_defense,
     )
     client = OpenAIHTTPClient(args.base_url)
     paths = []

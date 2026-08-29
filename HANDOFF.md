@@ -1,7 +1,7 @@
 # HANDOFF
 
-State of the project as of **2026-08-28**, after Checkpoint 4 passed its
-determinism gate. Written for whoever picks this up next, including a future me with
+State of the project as of **2026-08-28**, after Checkpoint 5 baseline
+calibration began. Written for whoever picks this up next, including a future me with
 no memory of the run.
 
 Read `doc/TODO.md` first — it is the assignment and the source of every settled
@@ -19,10 +19,10 @@ replacement for either.
 | 2 | **Phase 0 single-turn experiment** | **done — 460 cells, 16.2 h, results below** |
 | 3 | Provenance-aware shim, renderer, span mapping | done |
 | 4 | Deterministic ReAct loop | **done — normalized 3B pilot trajectories are byte-identical** |
-| 5 | Paired replay, primary experiment | not started; needs its own protocol freeze and budget ruling (D13) |
+| 5 | Paired replay, primary experiment | in progress; six-day budget approved, baseline calibration not frozen |
 | 6 | External validity | gated on Phase 2 review |
 
-261 tests pass (`uv run pytest`). No test loads model weights; where a forward
+263 tests pass (`uv run pytest`). No test loads model weights; where a forward
 pass is unavoidable a tiny randomly-initialized Llama with the pinned tokenizer
 stands in.
 
@@ -189,17 +189,19 @@ See `CHECKPOINT4.md` for the failed attempt and the complete result.
 1. **Stop for Checkpoint 4 review.** The acceptance gate passed. The 3B model
    emitted invalid multi-call content and did not complete the task. B6 makes
    this a non-reporting determinism pilot, not a model-quality result.
-2. **Get the D13 budget ruling before Checkpoint 5.** The estimate is 4–10
-   days. The Phase 0 budget does not cover this work.
-3. **Measure Checkpoint 5 baselines before protocol freeze.** Read every
-   threshold quantity first. The Phase 0 baseline mistake must not recur.
-4. **Write `HYSTERESIS_PROTOCOL.md` before cache experiment code.** Define the
-   release boundary and the dirty-cache versus clean-recomputation comparison.
-5. **Then implement Checkpoint 5 paired replay.** Do not start collection until
-   the task set, arms, metrics, exclusions, and budget are frozen.
+2. **D13 is resolved at six days / 144 h.** The ceiling is cumulative across
+   baseline probes and collection. See `DECISIONS.md` B8.
+3. **Expand the Checkpoint 5 candidate task set.** The version-5 probe has a
+   non-degenerate attack rate, but three tasks cannot support thresholds.
+4. **Add retain perplexity and both safety channels at replay prefixes.** These
+   baseline quantities remain unmeasured. See `CHECKPOINT5_BASELINE.md`.
+5. **Freeze the paired-replay protocol after the expanded baseline.** The
+   operational cache protocol is already frozen in `HYSTERESIS_PROTOCOL.md`.
+6. **Then implement Checkpoint 5 paired replay.** Do not start primary
+   collection until tasks, arms, metrics, exclusions, and thresholds are frozen.
 
-Open rulings still outstanding are in `DECISIONS.md` §D. D13 blocks Checkpoint
-5 collection.
+Open rulings still outstanding are in `DECISIONS.md` §D. No ruling blocks the
+next baseline step. The protocol gates still block primary collection.
 
 ## 8. Discipline that is binding, not aspirational
 

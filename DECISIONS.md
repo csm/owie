@@ -202,6 +202,20 @@ Decided by Casey Marshall, 2026-08-24. Resolves D2, D3, and D4.
   frozen in `EXPERIMENT_PROTOCOL.md` §7 and were fixed before any Phase 0 cell
   ran. Changing one after collection is a recorded deviation, not an edit.
 
+### B8. Checkpoint 5 compute budget — six days
+
+Decided by Casey Marshall, 2026-08-28. Resolves D13.
+
+Checkpoint 5 gets six days (144 h) of otherwise-idle laptop time. This value is
+a cumulative ceiling across baseline probes and paired-replay collection.
+
+If the ceiling binds, stop and report all completed pairs. Do not drop an arm,
+metric, safety evaluation, or exclusion rule to finish within the ceiling.
+
+The run status must preserve cumulative elapsed time across resumptions. An
+overrun needs a new ruling in this file. This budget does not authorize paid
+compute.
+
 ---
 
 ## C. Approved deviations
@@ -314,9 +328,9 @@ Tracked here so they are not settled silently by whoever writes the code first.
 | D8 | How code reaches the GPU host | **MOOT** | there is no separate host |
 | D9 | Wall-clock budget for the Phase 0 sweep on this machine | **RESOLVED** | 3 days / ~72 h, with pre-registered truncation rules. See B5 |
 | D10 | Whether to add a 3B pilot model | **RESOLVED** | approved as a non-reporting pilot; placed at Checkpoint 4 (determinism) and as a Checkpoint 2 dry run. See B6 |
-| D11 | Tool content can forge role headers — the template does not escape `<\|eot_id\|>` etc. | **Checkpoint 3 resolved; Checkpoint 4 task pending** | provenance is recorded while rendering and never recovered by delimiter recognition; the forged-header fixture proves it remains tool content. OpenAI input must use role `tool`; input role `ipython` is rejected so it cannot silently produce an empty primary mask. Add forged headers to the Checkpoint 4 injection task set. `tests/test_rendering.py` |
+| D11 | Tool content can forge role headers — the template does not escape `<\|eot_id\|>` etc. | **RESOLVED** | provenance is recorded while rendering and never recovered by delimiter recognition; the forged-header fixture proves it remains tool content. The Checkpoint 4 task set contains a forged-header injection task. OpenAI input must use role `tool`; input role `ipython` is rejected. `tests/test_rendering.py`, `loop/tasks.py` |
 | D12 | SAE ships as `.pth` (torch pickle), off the `safetensors` baseline | **RESOLVED** 2026-08-24 | implemented as proposed in `directions/sae.py`: loaded once under `weights_only=True`, converted to safetensors, both hashed, conversion recorded in the run manifest. The pickle is never loaded again |
-| D13 | Wall-clock budget for Checkpoint 5 paired replay | open, before Checkpoint 5 | costed at 4–10 days; **not** covered by B5 and needs its own ruling |
+| D13 | Wall-clock budget for Checkpoint 5 paired replay | **RESOLVED** 2026-08-28 | **six days / 144 h**, cumulative across baseline probes and collection. See B8 |
 | D14 | `clamp_feature` reads the current coefficient by projection, not through the SAE encoder | **RESOLVED** 2026-08-24 | a **new** function, `interventions.clamp_sae_feature(hidden, encoder_row, encoder_bias, decoder_column, value, span_mask)`, reads the activation through the encoder with its bias and ReLU. Pre-registered in `EXPERIMENT_PROTOCOL.md` §5 before collection. The Checkpoint 1 `clamp_feature` signature is unchanged and is excluded from the SAE arm |
 
 Checkpoint 3 dependency correction (2026-08-23): the preflight listed
