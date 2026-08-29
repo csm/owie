@@ -345,10 +345,19 @@ def run_task(client: ChatClient, task: Task, config: LoopConfig) -> RunResult:
 
 
 def write_trajectory(path: Path, result: RunResult) -> None:
+    """Write events without reordering request mappings used by chat rendering."""
+
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("x", encoding="utf-8", newline="\n") as stream:
         for event in result.events:
-            stream.write(_canonical_json(event) + "\n")
+            stream.write(
+                json.dumps(
+                    event,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
+                + "\n"
+            )
 
 
 def canonical_trajectory(path: Path) -> bytes:

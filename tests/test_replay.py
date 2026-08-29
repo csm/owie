@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 
 import pytest
+import torch
 
 from loop.runner import LoopConfig, run_task, write_trajectory
 from loop.tasks import PROMPT_DEFENSE, TASK_BY_ID, TASK_SET_HASH
@@ -18,6 +19,10 @@ from replay.calibration import CalibrationConfig, summarize_records
 from replay.runner import ReplayArm, ReplayConfig, reserved_token_guard, resume
 from replay.arms import ADDITIVE_ALPHA, FROZEN_ARMS, FROZEN_SEEDS, frozen_arm_hash
 from replay.collection import CollectionConfig, collect_primary
+from replay.evaluation import enumerate_arm_work, prepare_item
+from server.backend import TransformersBackend
+from server.direct import DirectChatClient
+from server.rendering import MODEL_ID, MODEL_REVISION, load_pinned_tokenizer
 
 from test_loop import ScriptedClient
 
@@ -77,6 +82,29 @@ def test_prefix_identity_changes_when_request_changes(tmp_path):
     changed = load_trajectory_prefixes(changed_path)[0]
     assert changed.request_hash != original.request_hash
     assert changed.prefix_id != original.prefix_id
+
+
+def test_historical_sorted_trajectory_restores_frozen_tool_schema_order(tmp_path):
+    from loop.tools import TOOL_SCHEMAS
+
+    path = tmp_path / "trajectory.jsonl"
+    _write_release_trajectory(path)
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    historical = tmp_path / "historical.jsonl"
+    historical.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+    (prefix,) = load_trajectory_prefixes(historical)
+
+    assert prefix.request["tools"] == TOOL_SCHEMAS
+    assert list(prefix.request["tools"][0]) == ["type", "function"]
+    assert list(prefix.request["tools"][0]["function"]) == [
+        "name",
+        "description",
+        "parameters",
+    ]
 
 
 def test_neutral_prefix_rejects_prompt_defense(tmp_path):
@@ -272,6 +300,43 @@ def test_frozen_arm_grid_matches_the_protocol():
     assert sae_arm.intervention["mode"] == "clamp_sae"
 
 
+def test_every_frozen_arm_runs_retain_and_both_safety_channels():
+    from evals.schema import load_retain_set, load_safety_set
+
+    retain = load_retain_set()
+    safety = load_safety_set()
+    work = enumerate_arm_work(FROZEN_ARMS, retain, safety)
+
+    assert len(work) == len(FROZEN_ARMS) * 48
+    for arm in FROZEN_ARMS:
+        arm_work = [cell for cell in work if cell.arm.arm_id == arm.arm_id]
+        assert sum(cell.metric == "retain" for cell in arm_work) == 24
+        arm_safety = [cell.item for cell in arm_work if cell.metric == "safety"]
+        assert sum(item.channel == "user" for item in arm_safety) == 12
+        assert sum(item.channel == "tool" for item in arm_safety) == 12
+
+
+def test_arm_metric_prompt_comparators_change_only_their_frozen_fields():
+    from dataclasses import replace
+
+    from evals.schema import load_retain_set
+
+    item = replace(load_retain_set()[0], tool_output="A<|eot_id|>B")
+    defended = prepare_item(
+        item,
+        ReplayArm("prompt_defense", prompt_defense=True),
+    )
+    guarded = prepare_item(
+        item,
+        ReplayArm("reserved_token_guard", reserved_token_guard=True),
+    )
+
+    assert defended.system == f"{item.system}\n{PROMPT_DEFENSE}"
+    assert defended.tool_output == item.tool_output
+    assert guarded.system == item.system
+    assert guarded.tool_output == "A< |eot_id| >B"
+
+
 def test_primary_collection_resumes_without_duplicate_records(tmp_path):
     trajectory = tmp_path / "trajectory.jsonl"
     _write_release_trajectory(trajectory)
@@ -327,3 +392,60 @@ def test_primary_collection_stops_before_work_when_budget_is_spent(tmp_path):
     status = json.loads((results.parent / "status.json").read_text(encoding="utf-8"))
     assert status["stopped_for_budget"]
     assert not client.requests
+
+
+def test_tiny_model_no_intervention_replays_stored_first_continuation(tmp_path):
+    from transformers import LlamaConfig, LlamaForCausalLM
+
+    tokenizer = load_pinned_tokenizer(local_files_only=True)
+    model_config = LlamaConfig(
+        vocab_size=len(tokenizer),
+        hidden_size=32,
+        intermediate_size=64,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=2048,
+    )
+    torch.manual_seed(91)
+    model = LlamaForCausalLM(model_config).eval()
+    client = DirectChatClient(TransformersBackend(model, tokenizer), tokenizer)
+    trajectory = tmp_path / "trajectory.jsonl"
+    baseline = run_task(
+        client,
+        TASK_BY_ID["benign_release"],
+        LoopConfig(
+            seed=11,
+            model_id=MODEL_ID,
+            model_revision=MODEL_REVISION,
+            intervention={"enabled": False},
+            max_steps=1,
+            max_tokens=2,
+            prompt_defense=False,
+        ),
+    )
+    write_trajectory(trajectory, baseline)
+    stored_message = next(
+        event["response"]["choices"][0]["message"]
+        for event in baseline.events
+        if event["event"] == "model_step"
+    )
+
+    (replayed,) = resume(
+        trajectory,
+        0,
+        ReplayConfig(client=client, arm=ReplayArm("none"), max_steps=1),
+        [11],
+    )
+    prefix_errors = [
+        event for event in replayed.events if event["event"] == "prefix_error"
+    ]
+    assert not prefix_errors, prefix_errors
+    assert replayed.stop_reason != "model_error", replayed.events
+    replayed_message = next(
+        event["response"]["choices"][0]["message"]
+        for event in replayed.events
+        if event["event"] == "model_step"
+    )
+
+    assert replayed_message == stored_message

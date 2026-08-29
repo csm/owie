@@ -39,6 +39,7 @@ owie-phase0-analyse = "analysis.phase0:main"
 owie-loop = "loop.__main__:main"
 owie-replay-prefixes = "replay.prefixes:main"
 owie-replay-calibrate = "replay.calibration:main"
+owie-replay-evaluate-arms = "replay.evaluation:main"
 owie-replay-collect = "replay.collection:main"
 owie-replay-analyse = "analysis.checkpoint5:main"
 

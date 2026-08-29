@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from loop.tasks import TASK_BY_ID, TASK_SET_HASH
+from loop.tools import TOOL_SCHEMAS
 
 
 def _canonical_json(value: Any) -> str:
@@ -81,6 +82,22 @@ def _environment_before_step(events: list[dict[str, Any]], step: int) -> dict[st
     return environment
 
 
+def _restore_render_sensitive_order(request: Mapping[str, Any]) -> dict[str, Any]:
+    """Restore frozen schema order lost by the historical canonical writer.
+
+    JSON object order does not change the request's meaning or canonical hash,
+    but the pinned chat template emits tool schemas in insertion order. Older
+    trajectories were written with sorted keys, so reloading their otherwise
+    identical schemas changed the rendered prompt. Only the exact frozen schema
+    set is rehydrated here; an unknown tool surface remains untouched.
+    """
+
+    restored = copy.deepcopy(dict(request))
+    if restored.get("tools") == list(TOOL_SCHEMAS):
+        restored["tools"] = copy.deepcopy(TOOL_SCHEMAS)
+    return restored
+
+
 def load_trajectory_prefixes(
     path: Path,
     *,
@@ -129,6 +146,7 @@ def load_trajectory_prefixes(
             raise ValueError(f"{path}: model step must be a non-negative integer")
         if not isinstance(request, dict):
             raise ValueError(f"{path}: model step {step} request must be an object")
+        request = _restore_render_sensitive_order(request)
         if not isinstance(rendered_hash, str) or not rendered_hash.startswith("sha256:"):
             raise ValueError(f"{path}: model step {step} lacks a rendered prompt hash")
         request_hash = _sha256_json(request)

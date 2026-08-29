@@ -1,6 +1,7 @@
 """Checkpoint 3 provenance-aware OpenAI-compatible shim."""
 
 from .api import ChatCompletionRequest, InterventionRequest, create_app
+from .direct import DirectChatClient
 from .backend import (
     BackendCompletion,
     RegisteredDirection,
@@ -38,6 +39,7 @@ __all__ = [
     "BackendCompletion",
     "CharacterRegion",
     "ChatCompletionRequest",
+    "DirectChatClient",
     "InterventionConfig",
     "InterventionRequest",
     "PositionAwareHook",
