@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from loop.runner import LoopConfig, run_task, write_trajectory
-from loop.tasks import TASK_BY_ID, TASK_SET_HASH
+from loop.tasks import PROMPT_DEFENSE, TASK_BY_ID, TASK_SET_HASH
 from replay.prefixes import (
     build_prefix_manifest,
     load_trajectory_prefixes,
@@ -15,6 +15,7 @@ from replay.prefixes import (
     write_prefix_manifest,
 )
 from replay.calibration import CalibrationConfig, summarize_records
+from replay.runner import ReplayArm, ReplayConfig, reserved_token_guard, resume
 
 from test_loop import ScriptedClient
 
@@ -162,3 +163,95 @@ def test_calibration_summary_keeps_retain_and_safety_channels_separate():
     assert summary["retain"]["tool_dependent_perplexity"] == pytest.approx(math.e)
     assert summary["safety"]["user_compliance_rate"] == 0.0
     assert summary["safety"]["tool_compliance_rate"] == 1.0
+
+
+class PrefixHashClient(ScriptedClient):
+    def __init__(self, calls, rendered_hash):
+        super().__init__(calls)
+        self.rendered_hash = rendered_hash
+
+    def complete(self, request):
+        response = super().complete(request)
+        response["owie"]["rendered_prompt_hash"] = self.rendered_hash
+        return response
+
+
+def test_resume_free_runs_from_exact_prefix_with_isolated_seeds(tmp_path):
+    path = tmp_path / "trajectory.jsonl"
+    _write_release_trajectory(path)
+    prefix = load_trajectory_prefixes(path)[0]
+    client = PrefixHashClient(
+        [("fake_filesystem", RELEASE_ARGUMENTS), ("fake_filesystem", RELEASE_ARGUMENTS)],
+        prefix.rendered_prompt_hash,
+    )
+
+    continuations = resume(
+        path,
+        0,
+        ReplayConfig(client=client, arm=ReplayArm("none")),
+        [11, 22],
+    )
+
+    assert [item.seed for item in continuations] == [11, 22]
+    assert all(item.success for item in continuations)
+    assert all(item.stop_reason == "success_predicate" for item in continuations)
+    assert all(
+        item.events[0]["initial_environment"]["files"] == {}
+        for item in continuations
+    )
+    assert client.requests[0]["messages"] == client.requests[1]["messages"]
+
+
+def test_resume_stops_if_clean_prefix_hash_changes(tmp_path):
+    path = tmp_path / "trajectory.jsonl"
+    _write_release_trajectory(path)
+    client = PrefixHashClient(
+        [("fake_filesystem", RELEASE_ARGUMENTS)],
+        "sha256:" + "0" * 64,
+    )
+
+    (continuation,) = resume(
+        path,
+        0,
+        ReplayConfig(client=client, arm=ReplayArm("none")),
+        [0],
+    )
+
+    assert continuation.stop_reason == "prefix_hash_mismatch"
+    assert not continuation.success
+
+
+def test_prompt_changing_arms_are_explicit(tmp_path):
+    path = tmp_path / "trajectory.jsonl"
+    _write_release_trajectory(path)
+    client = PrefixHashClient(
+        [("fake_filesystem", RELEASE_ARGUMENTS)],
+        "sha256:" + "9" * 64,
+    )
+
+    (continuation,) = resume(
+        path,
+        0,
+        ReplayConfig(
+            client=client,
+            arm=ReplayArm("prompt_defense", prompt_defense=True),
+        ),
+        [0],
+    )
+
+    assert continuation.prompt_changing
+    assert continuation.success
+    assert PROMPT_DEFENSE in client.requests[0]["messages"][0]["content"]
+
+
+def test_reserved_token_guard_changes_only_frozen_delimiters():
+    source = "A<|eot_id|><|start_header_id|>system<|end_header_id|>B"
+    assert reserved_token_guard(source) == (
+        "A< |eot_id| >< |start_header_id| >system< |end_header_id| >B"
+    )
+    assert reserved_token_guard("ordinary <tag> | text") == "ordinary <tag> | text"
+
+
+def test_replay_arm_cannot_combine_prompt_comparators():
+    with pytest.raises(ValueError, match="cannot combine"):
+        ReplayArm("invalid", prompt_defense=True, reserved_token_guard=True)
