@@ -174,6 +174,12 @@ Planned, not run now. Two placements:
   to exercise the pipeline end to end before spending any of the B5 budget on
   8B. Charged to development time, not to the 72 h.
 
+Checkpoint 4 note, 2026-08-28: the 3B official template defaults its date to
+the wall clock. The renderer now passes the template fallback value,
+`date_string="26 Jul 2024"`, explicitly. This keeps the prompt stable and keeps
+the custom renderer byte-identical to the official template. The failed first
+request is preserved in `runs/checkpoint4-3b-2026-08-28-failed-template/`.
+
 **Hard constraint:** 3B has no matched SAE and is not the pinned model. It
 never carries a reported result, never appears in an effect-size table, and
 never substitutes for an 8B arm. Runs against it are tagged as pilot runs in

@@ -7,13 +7,25 @@ from typing import Sequence
 
 from .api import create_app
 from .backend import RegisteredDirection, TransformersBackend, hash_direction_bundle
-from .rendering import MODEL_ID, MODEL_REVISION, load_pinned_tokenizer
+from .rendering import (
+    MODEL_ID,
+    MODEL_REVISION,
+    PILOT_MODEL_ID,
+    PILOT_MODEL_REVISION,
+    load_pilot_tokenizer,
+    load_pinned_tokenizer,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--pilot-3b",
+        action="store_true",
+        help="serve the approved non-reporting 3B determinism pilot",
+    )
     parser.add_argument(
         "--direction",
         action="append",
@@ -27,16 +39,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     from directions import read_bundle
     from transformers import AutoModelForCausalLM
 
-    tokenizer = load_pinned_tokenizer()
+    model_id = PILOT_MODEL_ID if args.pilot_3b else MODEL_ID
+    model_revision = PILOT_MODEL_REVISION if args.pilot_3b else MODEL_REVISION
+    tokenizer = load_pilot_tokenizer() if args.pilot_3b else load_pinned_tokenizer()
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID, revision=MODEL_REVISION, dtype="auto", device_map="mps"
+        model_id, revision=model_revision, dtype="auto", device_map="mps"
     )
     directions = {}
     for direction_id in args.direction:
         bundle = read_bundle(direction_id)
         if (
-            bundle.manifest.model_id != MODEL_ID
-            or bundle.manifest.model_revision != MODEL_REVISION
+            bundle.manifest.model_id != model_id
+            or bundle.manifest.model_revision != model_revision
         ):
             parser.error(
                 f"direction {direction_id!r} targets "
@@ -51,7 +65,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             bundle_hash=hash_direction_bundle(bundle.path),
         )
     app = create_app(
-        TransformersBackend(model, tokenizer, directions=directions), tokenizer
+        TransformersBackend(model, tokenizer, directions=directions),
+        tokenizer,
+        model_id=model_id,
+        model_revision=model_revision,
     )
     uvicorn.run(app, host=args.host, port=args.port, workers=1)
     return 0

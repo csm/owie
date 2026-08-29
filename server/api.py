@@ -40,6 +40,7 @@ class ChatCompletionRequest(BaseModel):
     temperature: float = 0.0
     max_tokens: int | None = Field(default=None, gt=0)
     seed: int | None = None
+    use_cache: bool = True
     intervention: InterventionRequest = Field(default_factory=InterventionRequest)
 
     @model_validator(mode="after")

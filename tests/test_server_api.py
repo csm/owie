@@ -173,8 +173,10 @@ class DeterministicGenerateModel(torch.nn.Module):
         super().__init__()
         self.anchor = torch.nn.Parameter(torch.zeros(()))
         self.generated_ids = torch.tensor([generated_ids], dtype=torch.long)
+        self.seen_generation = None
 
-    def generate(self, input_ids, **_kwargs):
+    def generate(self, input_ids, **kwargs):
+        self.seen_generation = kwargs
         return torch.cat((input_ids, self.generated_ids.to(input_ids.device)), dim=1)
 
 
@@ -220,6 +222,22 @@ def test_generation_at_token_cap_reports_length():
         ),
     )
     assert completion.finish_reason == "length"
+
+
+def test_backend_obeys_request_to_disable_kv_cache():
+    tokenizer = load_pinned_tokenizer(local_files_only=True)
+    rendered = render_chat(tokenizer, [{"role": "user", "content": "hi"}])
+    model = DeterministicGenerateModel([])
+    TransformersBackend(model, tokenizer).complete(
+        rendered,
+        SimpleNamespace(temperature=0.0, max_tokens=1, seed=0, use_cache=False),
+        RequestState(
+            InterventionConfig(enabled=False),
+            rendered.primary_mask,
+            rendered.whole_tool_block_mask,
+        ),
+    )
+    assert model.seen_generation["use_cache"] is False
 
 
 class FailingGenerateModel(torch.nn.Module):

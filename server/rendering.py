@@ -1,4 +1,4 @@
-"""Llama 3.1 chat rendering with character and token provenance.
+"""Llama 3 chat rendering with character and token provenance.
 
 The implementation intentionally mirrors the pinned tokenizer template rather
 than trying to recover provenance from delimiters after rendering. Tool output
@@ -15,6 +15,9 @@ from typing import Any, Mapping, Sequence
 
 MODEL_ID = "meta-llama/Llama-3.1-8B-Instruct"
 MODEL_REVISION = "0e9e39f249a16976918f6564b8830bc894c89659"
+PILOT_MODEL_ID = "meta-llama/Llama-3.2-3B-Instruct"
+PILOT_MODEL_REVISION = "0cb88a4f764b7a12671c53f0838cd831a0843b95"
+CHAT_TEMPLATE_DATE = "26 Jul 2024"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -271,7 +274,7 @@ def _render_characters_normalized(
     if tools is not None:
         writer.append("Environment: ipython\n", "separator", role="system")
     writer.append(
-        "Cutting Knowledge Date: December 2023\nToday Date: 26 Jul 2024\n\n",
+        f"Cutting Knowledge Date: December 2023\nToday Date: {CHAT_TEMPLATE_DATE}\n\n",
         "separator",
         role="system",
     )
@@ -400,6 +403,7 @@ def render_chat(
             tools=tools,
             tokenize=False,
             add_generation_prompt=add_generation_prompt,
+            date_string=CHAT_TEMPLATE_DATE,
         )
         if text != official:
             raise RenderError(
@@ -452,4 +456,15 @@ def load_pinned_tokenizer(*, local_files_only: bool = False) -> Any:
 
     return AutoTokenizer.from_pretrained(
         MODEL_ID, revision=MODEL_REVISION, local_files_only=local_files_only
+    )
+
+
+def load_pilot_tokenizer(*, local_files_only: bool = False) -> Any:
+    """Load the approved non-reporting 3B pilot at its immutable revision."""
+    from transformers import AutoTokenizer
+
+    return AutoTokenizer.from_pretrained(
+        PILOT_MODEL_ID,
+        revision=PILOT_MODEL_REVISION,
+        local_files_only=local_files_only,
     )

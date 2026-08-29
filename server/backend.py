@@ -151,7 +151,7 @@ class TransformersBackend:
         generation = {
             "max_new_tokens": max_new_tokens,
             "do_sample": temperature > 0.0,
-            "use_cache": True,
+            "use_cache": bool(getattr(request, "use_cache", True)),
             "pad_token_id": self.tokenizer.eos_token_id,
         }
         if temperature > 0.0:

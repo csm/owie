@@ -1,7 +1,7 @@
 # HANDOFF
 
-State of the project as of **2026-08-26**, after Checkpoint 2 (Phase 0) has
-collected. Written for whoever picks this up next, including a future me with
+State of the project as of **2026-08-28**, after Checkpoint 4 passed its
+determinism gate. Written for whoever picks this up next, including a future me with
 no memory of the run.
 
 Read `doc/TODO.md` first — it is the assignment and the source of every settled
@@ -18,11 +18,11 @@ replacement for either.
 | 1 | Pure intervention kernel, direction-bundle format | done |
 | 2 | **Phase 0 single-turn experiment** | **done — 460 cells, 16.2 h, results below** |
 | 3 | Provenance-aware shim, renderer, span mapping | done |
-| 4 | Deterministic ReAct loop | **not started — this is next** |
+| 4 | Deterministic ReAct loop | **done — normalized 3B pilot trajectories are byte-identical** |
 | 5 | Paired replay, primary experiment | not started; needs its own protocol freeze and budget ruling (D13) |
 | 6 | External validity | gated on Phase 2 review |
 
-250 tests pass (`uv run pytest`). No test loads model weights; where a forward
+261 tests pass (`uv run pytest`). No test loads model weights; where a forward
 pass is unavoidable a tiny randomly-initialized Llama with the pinned tokenizer
 stands in.
 
@@ -37,6 +37,9 @@ uv run owie-phase0 --run-dir runs/<id> --tranche A --budget-hours 72
 uv run owie-phase0-analyse --results runs/<id>/results.jsonl
 uv run inspect-spans --local-files-only request.json   # provenance, no weights
 uv run owie-server --direction <bundle-id>             # Checkpoint 3 shim
+uv run owie-server --pilot-3b                           # non-reporting pilot
+uv run owie-loop --pilot-3b --task injection_forged_header \
+  --seed 0 --repeat 2 --run-dir runs/<id>
 ```
 
 The sweep is **resumable and keyed by cell**: re-running the same command skips
@@ -136,8 +139,12 @@ look at the distribution of every quantity a threshold will be set on.**
   refusal nor harmful text.
 - **MPS determinism is unproven.** `use_deterministic_algorithms(True)` is
   accepted and repeated matmuls are bitwise equal, but `index_add_` has no
-  deterministic MPS implementation. Checkpoint 4's byte-identical-trajectory
-  test is the real proof and a failure invalidates Checkpoint 5's design.
+  deterministic MPS implementation. Checkpoint 4 passed its trajectory test on
+  the 3B pilot. This result covers the tested greedy path, not every MPS kernel.
+- **The 3B template reads the wall-clock date by default.** The first pilot
+  request failed the renderer byte-equality check. The server now passes the
+  pinned template fallback value, `26 Jul 2024`, through `date_string`. The
+  failed request is preserved with the Checkpoint 4 artifacts.
 - **`status.json` cumulative time for this run was corrected by hand.** Tranche
   A ran under code predating the cumulative-budget fix, so the resumed pass
   read a prior spend of 0. True total 16.18 h; the field carries a note. Fixed
@@ -171,24 +178,28 @@ Bundles are never overwritten and a re-fit gets a new id. `read_bundle`
 recomputes the contrast hash and re-checks the vector against its manifest, so
 a bundle that has drifted raises instead of loading.
 
+Checkpoint 4 raw artifacts are in `runs/checkpoint4-3b-2026-08-28/`. The two
+raw trajectory hashes differ because timing fields remain in the source files.
+After the three documented timing fields are removed, both trajectories have
+SHA-256 `27f961c94a3451bb8e0f93ac33c1f51de1c754ccfb1ab6a7308d578b05212fc8`.
+See `CHECKPOINT4.md` for the failed attempt and the complete result.
+
 ## 7. What to do next
 
-1. **Checkpoint 4 — the deterministic ReAct loop.** ~300 lines, three fake tool
-   domains, programmatic success predicates, JSONL trajectories. Acceptance:
-   two no-intervention runs of the same task and seed produce byte-identical
-   trajectory files.
-2. **Run the determinism test on the 3B pilot first** (`DECISIONS.md` B6). It
-   is placed there precisely because MPS determinism is the risk, the test does
-   not care about model quality, and a failure invalidates Checkpoint 5.
-3. **Add forged role headers to the Checkpoint 4 injection tasks** — the
-   remaining half of D11. Checkpoint 3 proved provenance survives them; the
-   task set should exercise it end to end.
-4. **Before Checkpoint 5:** get a budget ruling (D13, costed at 4–10 days),
-   write `HYSTERESIS_PROTOCOL.md` before implementing it, and freeze the
-   protocol *after* measuring baselines (§4 above).
+1. **Stop for Checkpoint 4 review.** The acceptance gate passed. The 3B model
+   emitted invalid multi-call content and did not complete the task. B6 makes
+   this a non-reporting determinism pilot, not a model-quality result.
+2. **Get the D13 budget ruling before Checkpoint 5.** The estimate is 4–10
+   days. The Phase 0 budget does not cover this work.
+3. **Measure Checkpoint 5 baselines before protocol freeze.** Read every
+   threshold quantity first. The Phase 0 baseline mistake must not recur.
+4. **Write `HYSTERESIS_PROTOCOL.md` before cache experiment code.** Define the
+   release boundary and the dirty-cache versus clean-recomputation comparison.
+5. **Then implement Checkpoint 5 paired replay.** Do not start collection until
+   the task set, arms, metrics, exclusions, and budget are frozen.
 
-Open rulings still outstanding are in `DECISIONS.md` §D. D13 is the only one
-blocking Checkpoint 5; nothing blocks Checkpoint 4.
+Open rulings still outstanding are in `DECISIONS.md` §D. D13 blocks Checkpoint
+5 collection.
 
 ## 8. Discipline that is binding, not aspirational
 
