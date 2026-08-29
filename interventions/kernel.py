@@ -43,6 +43,7 @@ __all__ = [
     "project_out",
     "add_vector",
     "clamp_feature",
+    "clamp_sae_feature",
 ]
 
 
@@ -403,4 +404,67 @@ def clamp_feature(
     x = hidden.to(_compute_dtype(hidden.dtype))
     coeff = (x * d).sum(dim=-1, keepdim=True)
     modified = x + (v - coeff) * d
+    return _assemble(hidden, modified, span_mask)
+
+
+def clamp_sae_feature(
+    hidden: Tensor,
+    encoder_row: Tensor,
+    encoder_bias: float | Tensor,
+    decoder_column: Tensor,
+    value: float | Tensor,
+    span_mask: Tensor,
+) -> Tensor:
+    r"""Clamp one SAE feature, reading its activation through the encoder.
+
+    .. math::
+       a = \mathrm{relu}(w_{enc}^\top x + b_{enc}), \qquad
+       x' = x + (v - a)\,d_{dec}
+
+    This is the pre-registered resolution of ``DECISIONS.md`` D14. The
+    Checkpoint 1 signature ``clamp_feature`` reads the current coefficient by
+    projecting onto the decoder direction, which equals the true feature
+    activation only for an orthonormal dictionary — and SAE dictionaries are
+    not orthonormal. Reporting a projection-read clamp as an SAE clamp would
+    misstate what the arm did, so the Checkpoint 2 SAE arm uses this function
+    and ``clamp_feature`` is left exactly as Checkpoint 1 specified it.
+
+    Deliberately *not* normalized. Both vectors come from a trained
+    dictionary: ``encoder_row`` and ``decoder_column`` have the scales the SAE
+    learned, ``value`` is in the units of that feature's activation, and
+    rescaling either vector would silently redefine what a clamp value means.
+    The usual normalization argument is therefore absent rather than defaulted.
+
+    Args:
+        hidden: (batch, seq, d_model) floating-point states.
+        encoder_row: (d_model,) encoder row for the feature.
+        encoder_bias: Scalar encoder bias for the feature.
+        decoder_column: (d_model,) decoder column for the feature.
+        value: Target activation. ``0.0`` suppresses the feature.
+        span_mask: (batch, seq) bool. True positions are modified.
+
+    Returns:
+        A new tensor, same dtype and device as ``hidden``, bitwise identical to
+        ``hidden`` at every False position of the mask.
+    """
+    _check_hidden(hidden)
+    _check_mask(span_mask, hidden)
+    encoder = _prepare_direction(
+        encoder_row, hidden, Norm.AS_IS, allow_as_is=True, argname="encoder_row"
+    )
+    decoder = _prepare_direction(
+        decoder_column, hidden, Norm.AS_IS, allow_as_is=True, argname="decoder_column"
+    )
+    bias = _check_scalar(encoder_bias, "encoder_bias")
+    target = _check_scalar(value, "value")
+    if target < 0.0:
+        raise InterventionError(
+            f"value must be non-negative, got {target!r}: a ReLU feature "
+            "activation cannot be negative, so a negative clamp target is not a "
+            "state the SAE can represent."
+        )
+
+    x = hidden.to(_compute_dtype(hidden.dtype))
+    activation = torch.relu((x * encoder).sum(dim=-1, keepdim=True) + bias)
+    modified = x + (target - activation) * decoder
     return _assemble(hidden, modified, span_mask)

@@ -1,0 +1,149 @@
+{
+  "c1": {
+    "features": [
+      {
+        "feature_index": 1584,
+        "mean_activation_difference": 0.096018,
+        "mean_activation_negative": 2e-06,
+        "mean_activation_positive": 0.09602
+      },
+      {
+        "feature_index": 34517,
+        "mean_activation_difference": 0.045069,
+        "mean_activation_negative": 0.0062,
+        "mean_activation_positive": 0.051269
+      },
+      {
+        "feature_index": 15189,
+        "mean_activation_difference": 0.044498,
+        "mean_activation_negative": 0.039187,
+        "mean_activation_positive": 0.083685
+      },
+      {
+        "feature_index": 3413,
+        "mean_activation_difference": -0.039387,
+        "mean_activation_negative": 0.159451,
+        "mean_activation_positive": 0.120064
+      },
+      {
+        "feature_index": 43294,
+        "mean_activation_difference": -0.028003,
+        "mean_activation_negative": 0.030071,
+        "mean_activation_positive": 0.002068
+      }
+    ],
+    "ranking": "absolute difference in mean feature activation, positive minus negative",
+    "rows_per_class": 160,
+    "sae": {
+      "conversion": "torch.load(weights_only=True) -> safetensors, once",
+      "d_model": 4096,
+      "layer": 19,
+      "n_features": 65536,
+      "repo": "Goodfire/Llama-3.1-8B-Instruct-SAE-l19",
+      "revision": "f6775a221e47b44233af4bac2c7b65189265519a",
+      "safetensors_hash": "sha256:5223dd47c15704c036fef4cbec5feb45355e4b60db7676a4e4e80f1d62cec66d",
+      "source_pth_hash": "sha256:bbdc6fad591d3d420e8859dcb6eefa4ec642026090f7f39a963b1c0f27290e4f"
+    },
+    "selection_hash": "sha256:2de8241291dc5504f71abb7926ca2e83f9a04ae9a8bc6618b31f3d6e1493eab2",
+    "split": "train",
+    "top_k": 5
+  },
+  "c2": {
+    "features": [
+      {
+        "feature_index": 15189,
+        "mean_activation_difference": 0.098436,
+        "mean_activation_negative": 0.039033,
+        "mean_activation_positive": 0.137469
+      },
+      {
+        "feature_index": 44532,
+        "mean_activation_difference": -0.05401,
+        "mean_activation_negative": 0.056499,
+        "mean_activation_positive": 0.002489
+      },
+      {
+        "feature_index": 1584,
+        "mean_activation_difference": 0.049519,
+        "mean_activation_negative": 1.5e-05,
+        "mean_activation_positive": 0.049534
+      },
+      {
+        "feature_index": 2112,
+        "mean_activation_difference": -0.040612,
+        "mean_activation_negative": 0.06289,
+        "mean_activation_positive": 0.022278
+      },
+      {
+        "feature_index": 43294,
+        "mean_activation_difference": -0.039639,
+        "mean_activation_negative": 0.041429,
+        "mean_activation_positive": 0.00179
+      }
+    ],
+    "ranking": "absolute difference in mean feature activation, positive minus negative",
+    "rows_per_class": 160,
+    "sae": {
+      "conversion": "torch.load(weights_only=True) -> safetensors, once",
+      "d_model": 4096,
+      "layer": 19,
+      "n_features": 65536,
+      "repo": "Goodfire/Llama-3.1-8B-Instruct-SAE-l19",
+      "revision": "f6775a221e47b44233af4bac2c7b65189265519a",
+      "safetensors_hash": "sha256:5223dd47c15704c036fef4cbec5feb45355e4b60db7676a4e4e80f1d62cec66d",
+      "source_pth_hash": "sha256:bbdc6fad591d3d420e8859dcb6eefa4ec642026090f7f39a963b1c0f27290e4f"
+    },
+    "selection_hash": "sha256:a83b62dbca11ca105d67a84c7a3a67b7509c5230020dae71345a8ae9f9eb9220",
+    "split": "train",
+    "top_k": 5
+  },
+  "c3": {
+    "features": [
+      {
+        "feature_index": 11110,
+        "mean_activation_difference": 0.026384,
+        "mean_activation_negative": 0.004665,
+        "mean_activation_positive": 0.031048
+      },
+      {
+        "feature_index": 34517,
+        "mean_activation_difference": -0.019742,
+        "mean_activation_negative": 0.049681,
+        "mean_activation_positive": 0.029939
+      },
+      {
+        "feature_index": 9808,
+        "mean_activation_difference": -0.015796,
+        "mean_activation_negative": 0.025684,
+        "mean_activation_positive": 0.009887
+      },
+      {
+        "feature_index": 30950,
+        "mean_activation_difference": -0.015059,
+        "mean_activation_negative": 0.015059,
+        "mean_activation_positive": 0.0
+      },
+      {
+        "feature_index": 19652,
+        "mean_activation_difference": 0.014629,
+        "mean_activation_negative": 0.006473,
+        "mean_activation_positive": 0.021103
+      }
+    ],
+    "ranking": "absolute difference in mean feature activation, positive minus negative",
+    "rows_per_class": 160,
+    "sae": {
+      "conversion": "torch.load(weights_only=True) -> safetensors, once",
+      "d_model": 4096,
+      "layer": 19,
+      "n_features": 65536,
+      "repo": "Goodfire/Llama-3.1-8B-Instruct-SAE-l19",
+      "revision": "f6775a221e47b44233af4bac2c7b65189265519a",
+      "safetensors_hash": "sha256:5223dd47c15704c036fef4cbec5feb45355e4b60db7676a4e4e80f1d62cec66d",
+      "source_pth_hash": "sha256:bbdc6fad591d3d420e8859dcb6eefa4ec642026090f7f39a963b1c0f27290e4f"
+    },
+    "selection_hash": "sha256:36f11a8b8c26db8c2da18c616736e7d75cc757c413368bc9b35bace567c1e55f",
+    "split": "train",
+    "top_k": 5
+  }
+}

@@ -19,16 +19,23 @@ credible negative or null results.**
 
 ## Status
 
-**Checkpoints 1 and 3 complete.** The pure intervention kernel, versioned
+**Checkpoints 1, 2, and 3 complete.** Phase 0 has collected: 460 cells across
+five arms and fifteen layers. Headline in `EXPERIMENT_PROTOCOL.md` §11 terms —
+projection ablation is direction-specific but an order of magnitude too small
+to be useful; large additive steering is mostly a perturbation-norm effect that
+random directions reproduce, including its safety damage; a moderate-alpha
+additive cell survives its matched control with no measurable collateral cost. The pure intervention kernel, versioned
 direction-bundle format, provenance-aware renderer, request-local hook runtime,
-and minimal OpenAI-compatible shim are implemented and tested. Model weights
-are loaded only when `owie-server` is started.
+minimal OpenAI-compatible shim, and the full Phase 0 pipeline — frozen contrast
+sets, activation extraction, difference-in-means fitting, the layer sweep, and
+the analysis — are implemented and tested. Model weights are loaded only when
+`owie-server` or `owie-phase0` is started.
 
 | # | Deliverable | State |
 | --- | --- | --- |
 | 0 | Environment survey, model decision | done — `PREFLIGHT.md`, `DECISIONS.md` |
 | 1 | Intervention kernel, direction-bundle format | **done** |
-| 2 | Phase 0 single-turn experiment | not started |
+| 2 | Phase 0 single-turn experiment | **done** — 460 cells, 16.2 h; see `runs/` and `analysis/phase0.md` |
 | 3 | Provenance-aware shim, renderer, span mapping | **done** |
 | 4 | Deterministic ReAct loop | not started |
 | 5 | Paired replay, primary experiment | not started |
@@ -61,6 +68,23 @@ Run just one area:
 uv run pytest tests/test_kernel.py
 ```
 
+Regenerate the frozen Phase 0 datasets (deterministic; must reproduce byte-identical files):
+
+```bash
+uv run owie-build-datasets
+```
+
+Run the Phase 0 sweep, and derive tables from its raw JSONL:
+
+```bash
+uv run owie-phase0 --run-dir runs/phase0-2026-08-24 --tranche A --budget-hours 72
+uv run owie-phase0-analyse --results runs/phase0-2026-08-24/results.jsonl
+```
+
+The sweep is resumable: re-running the same command skips completed cells. It
+stops at the budget rather than trimming arms, and the safety evaluation runs
+in every cell.
+
 Inspect provenance without loading model weights:
 
 ```bash
@@ -89,7 +113,7 @@ prompt hash, model revision, seed, and direction-bundle hash.
 | `server/` | OpenAI-compatible shim (Checkpoint 3) |
 | `loop/` | deterministic ReAct loop (Checkpoint 4) |
 | `replay/` | paired replay (Checkpoint 5) |
-| `evals/` | task sets and success predicates |
+| `evals/` | frozen datasets, metrics, and the Phase 0 sweep |
 | `analysis/` | derived tables and plots, regenerated from raw JSONL |
 | `tests/` | everything above |
 | `docs/` | pins and supporting notes |
@@ -103,7 +127,7 @@ prompt hash, model revision, seed, and direction-bundle hash.
 | `DECISIONS.md` | settled decisions, approved deviations, open rulings |
 | `docs/PINS.md` | immutable model, SAE, and dependency identifiers |
 | `docs/SPAN_MAPPING.md` | provenance regions, boundary tokens, runtime positions |
-| `EXPERIMENT_PROTOCOL.md` | frozen arms, datasets, metrics, exclusions — written before Checkpoint 2 collection |
+| `EXPERIMENT_PROTOCOL.md` | frozen arms, datasets, metrics, thresholds, exclusions — frozen 2026-08-24, before collection |
 | `HYSTERESIS_PROTOCOL.md` | the KV-cache experiment — written before Checkpoint 5 |
 
 ## Using the kernel

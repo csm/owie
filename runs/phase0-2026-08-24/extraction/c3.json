@@ -1,0 +1,75 @@
+{
+  "fitting_rule": "tool_content",
+  "hook_point": "resid_post",
+  "position_rules": [
+    "tool_content",
+    "varied_span",
+    "last_prompt",
+    "first_generated"
+  ],
+  "results": [
+    {
+      "concept": "c3",
+      "mean_residual_norm_by_layer": [
+        1.0463,
+        1.5119,
+        2.166,
+        2.959,
+        3.6418,
+        4.3378,
+        4.9241,
+        5.5061,
+        5.8588,
+        6.4427,
+        6.6947,
+        7.0504,
+        7.5404,
+        8.2118,
+        8.792,
+        9.7958,
+        10.9752,
+        12.4579,
+        13.9919,
+        15.2838,
+        16.5747,
+        18.7334,
+        20.8121,
+        22.81,
+        24.9952,
+        27.2029,
+        30.3718,
+        33.2042,
+        36.7508,
+        40.417,
+        47.6728,
+        142.9757
+      ],
+      "pairs": 160,
+      "rows_by_rule": {
+        "first_generated": {
+          "negative": 160,
+          "positive": 160
+        },
+        "last_prompt": {
+          "negative": 160,
+          "positive": 160
+        },
+        "tool_content": {
+          "negative": 160,
+          "positive": 160
+        },
+        "varied_span": {
+          "negative": 160,
+          "positive": 160
+        }
+      },
+      "split": "train",
+      "tokens_by_rule": {
+        "first_generated": 320,
+        "last_prompt": 320,
+        "tool_content": 12250,
+        "varied_span": 3090
+      }
+    }
+  ]
+}
