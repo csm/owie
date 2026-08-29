@@ -28,7 +28,7 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["interventions", "directions", "server", "evals", "analysis"]
+packages = ["interventions", "directions", "server", "evals", "analysis", "loop", "replay"]
 
 [project.scripts]
 inspect-spans = "server.inspect_spans:main"
@@ -36,6 +36,12 @@ owie-server = "server.__main__:main"
 owie-build-datasets = "evals.build_datasets:main"
 owie-phase0 = "evals.sweep:main"
 owie-phase0-analyse = "analysis.phase0:main"
+owie-loop = "loop.__main__:main"
+owie-replay-prefixes = "replay.prefixes:main"
+owie-replay-calibrate = "replay.calibration:main"
+owie-replay-evaluate-arms = "replay.evaluation:main"
+owie-replay-collect = "replay.collection:main"
+owie-replay-analyse = "analysis.checkpoint5:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -19,7 +19,7 @@ credible negative or null results.**
 
 ## Status
 
-**Checkpoints 1, 2, and 3 complete.** Phase 0 has collected: 460 cells across
+**Checkpoints 1, 2, 3, and 4 complete.** Phase 0 has collected: 460 cells across
 five arms and fifteen layers. Headline in `EXPERIMENT_PROTOCOL.md` §11 terms —
 projection ablation is direction-specific but an order of magnitude too small
 to be useful; large additive steering is mostly a perturbation-norm effect that
@@ -37,8 +37,8 @@ the analysis — are implemented and tested. Model weights are loaded only when
 | 1 | Intervention kernel, direction-bundle format | **done** |
 | 2 | Phase 0 single-turn experiment | **done** — 460 cells, 16.2 h; see `runs/` and `analysis/phase0.md` |
 | 3 | Provenance-aware shim, renderer, span mapping | **done** |
-| 4 | Deterministic ReAct loop | not started |
-| 5 | Paired replay, primary experiment | not started |
+| 4 | Deterministic ReAct loop | **done** — normalized 3B pilot trajectories are byte-identical |
+| 5 | Paired replay, primary experiment | **in progress** — baseline and protocol frozen; replay implementation active |
 | 6 | External validity | gated on Phase 2 review |
 
 ## Setup
@@ -104,6 +104,18 @@ top-level intervention configuration and boundary-token rule. Responses carry
 an `owie` diagnostics block containing the resolved intervention, mask counts,
 prompt hash, model revision, seed, and direction-bundle hash.
 
+Run the approved non-reporting 3B determinism pilot:
+
+```bash
+uv run owie-server --pilot-3b
+uv run owie-loop --pilot-3b --task injection_forged_header --seed 0 \
+  --repeat 2 --run-dir runs/checkpoint4-3b-determinism
+```
+
+Run the two commands in different terminals. The second command removes two
+documented timing fields before it compares the trajectory files. See
+`docs/LOOP.md` for the task set and the JSONL format.
+
 ## Layout
 
 | Path | Contents |
@@ -127,8 +139,11 @@ prompt hash, model revision, seed, and direction-bundle hash.
 | `DECISIONS.md` | settled decisions, approved deviations, open rulings |
 | `docs/PINS.md` | immutable model, SAE, and dependency identifiers |
 | `docs/SPAN_MAPPING.md` | provenance regions, boundary tokens, runtime positions |
+| `docs/LOOP.md` | Checkpoint 4 tools, tasks, trajectory format, and determinism rule |
+| `CHECKPOINT4.md` | Checkpoint 4 implementation, failed pilot, acceptance result, and hashes |
+| `CHECKPOINT5_BASELINE.md` | unfrozen baseline probes, defects, and candidate metrics |
 | `EXPERIMENT_PROTOCOL.md` | frozen arms, datasets, metrics, thresholds, exclusions — frozen 2026-08-24, before collection |
-| `HYSTERESIS_PROTOCOL.md` | the KV-cache experiment — written before Checkpoint 5 |
+| `HYSTERESIS_PROTOCOL.md` | frozen operational protocol for the within-completion KV-cache experiment |
 
 ## Using the kernel
 

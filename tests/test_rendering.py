@@ -8,6 +8,7 @@ from server.backend import encode_tool_call
 from server.rendering import (
     EOT,
     RenderError,
+    load_pilot_tokenizer,
     load_pinned_tokenizer,
     render_characters,
     render_chat,
@@ -17,6 +18,12 @@ from server.rendering import (
 @pytest.fixture(scope="module")
 def tokenizer():
     return load_pinned_tokenizer(local_files_only=True)
+
+
+def test_pilot_renderer_freezes_template_date_and_matches_official_output():
+    pilot = load_pilot_tokenizer(local_files_only=True)
+    rendered = render_chat(pilot, [{"role": "user", "content": "hello"}])
+    assert "Today Date: 26 Jul 2024" in rendered.text
 
 
 FIXTURES = [

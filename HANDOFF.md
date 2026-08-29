@@ -1,8 +1,7 @@
 # HANDOFF
 
-State of the project as of **2026-08-26**, after Checkpoint 2 (Phase 0) has
-collected. Written for whoever picks this up next, including a future me with
-no memory of the run.
+State of the project as of **2026-08-29**, after the Checkpoint 5 implementation
+passed its pre-collection acceptance checks. The primary collection has not started.
 
 Read `doc/TODO.md` first — it is the assignment and the source of every settled
 decision. Then `DECISIONS.md` §A–§C. This document is the map, not a
@@ -18,25 +17,30 @@ replacement for either.
 | 1 | Pure intervention kernel, direction-bundle format | done |
 | 2 | **Phase 0 single-turn experiment** | **done — 460 cells, 16.2 h, results below** |
 | 3 | Provenance-aware shim, renderer, span mapping | done |
-| 4 | Deterministic ReAct loop | **not started — this is next** |
-| 5 | Paired replay, primary experiment | not started; needs its own protocol freeze and budget ruling (D13) |
+| 4 | Deterministic ReAct loop | **done — normalized 3B pilot trajectories are byte-identical** |
+| 5 | Paired replay, primary experiment | implementation complete; collection not started |
 | 6 | External validity | gated on Phase 2 review |
 
-250 tests pass (`uv run pytest`). No test loads model weights; where a forward
-pass is unavoidable a tiny randomly-initialized Llama with the pinned tokenizer
-stands in.
+293 tests pass (`uv run pytest`). No test loads full model weights. A tiny random
+Llama model covers the direct replay path.
 
 ## 2. Running things
 
 ```bash
 uv sync                      # exact locked deps; Python 3.12
-uv run pytest                # 250 tests, no network, no weights
+uv run pytest                # 293 tests, no network, no full weights
 
 uv run owie-build-datasets   # regenerate frozen datasets; must be byte-identical
 uv run owie-phase0 --run-dir runs/<id> --tranche A --budget-hours 72
 uv run owie-phase0-analyse --results runs/<id>/results.jsonl
 uv run inspect-spans --local-files-only request.json   # provenance, no weights
 uv run owie-server --direction <bundle-id>             # Checkpoint 3 shim
+uv run owie-server --pilot-3b                           # non-reporting pilot
+uv run owie-loop --pilot-3b --task injection_forged_header \
+  --seed 0 --repeat 2 --run-dir runs/<id>
+uv run owie-replay-evaluate-arms --help
+uv run owie-replay-collect --help
+uv run owie-replay-analyse --help
 ```
 
 The sweep is **resumable and keyed by cell**: re-running the same command skips
@@ -136,8 +140,12 @@ look at the distribution of every quantity a threshold will be set on.**
   refusal nor harmful text.
 - **MPS determinism is unproven.** `use_deterministic_algorithms(True)` is
   accepted and repeated matmuls are bitwise equal, but `index_add_` has no
-  deterministic MPS implementation. Checkpoint 4's byte-identical-trajectory
-  test is the real proof and a failure invalidates Checkpoint 5's design.
+  deterministic MPS implementation. Checkpoint 4 passed its trajectory test on
+  the 3B pilot. This result covers the tested greedy path, not every MPS kernel.
+- **The 3B template reads the wall-clock date by default.** The first pilot
+  request failed the renderer byte-equality check. The server now passes the
+  pinned template fallback value, `26 Jul 2024`, through `date_string`. The
+  failed request is preserved with the Checkpoint 4 artifacts.
 - **`status.json` cumulative time for this run was corrected by hand.** Tranche
   A ran under code predating the cumulative-budget fix, so the resumed pass
   read a prior spend of 0. True total 16.18 h; the field carries a note. Fixed
@@ -171,24 +179,114 @@ Bundles are never overwritten and a re-fit gets a new id. `read_bundle`
 recomputes the contrast hash and re-checks the vector against its manifest, so
 a bundle that has drifted raises instead of loading.
 
+Checkpoint 4 raw artifacts are in `runs/checkpoint4-3b-2026-08-28/`. The two
+raw trajectory hashes differ because timing fields remain in the source files.
+After the three documented timing fields are removed, both trajectories have
+SHA-256 `27f961c94a3451bb8e0f93ac33c1f51de1c754ccfb1ab6a7308d578b05212fc8`.
+See `CHECKPOINT4.md` for the failed attempt and the complete result.
+
 ## 7. What to do next
 
-1. **Checkpoint 4 — the deterministic ReAct loop.** ~300 lines, three fake tool
-   domains, programmatic success predicates, JSONL trajectories. Acceptance:
-   two no-intervention runs of the same task and seed produce byte-identical
-   trajectory files.
-2. **Run the determinism test on the 3B pilot first** (`DECISIONS.md` B6). It
-   is placed there precisely because MPS determinism is the risk, the test does
-   not care about model quality, and a failure invalidates Checkpoint 5.
-3. **Add forged role headers to the Checkpoint 4 injection tasks** — the
-   remaining half of D11. Checkpoint 3 proved provenance survives them; the
-   task set should exercise it end to end.
-4. **Before Checkpoint 5:** get a budget ruling (D13, costed at 4–10 days),
-   write `HYSTERESIS_PROTOCOL.md` before implementing it, and freeze the
-   protocol *after* measuring baselines (§4 above).
+The pre-collection implementation is complete. The following checks pass:
 
-Open rulings still outstanding are in `DECISIONS.md` §D. D13 is the only one
-blocking Checkpoint 5; nothing blocks Checkpoint 4.
+- The loader reproduces all 23 frozen rendered-prompt hashes.
+- The repair does not change the frozen manifest hash `sha256:b38d...c18`.
+- A tiny Llama model reproduces its stored first continuation.
+- A direction arm changes only the intervention field at the clean prefix.
+- The arm evaluator schedules 624 records across all arms and metric items.
+- The retain and safety analysis resamples paired dataset items.
+- The task analysis resamples tasks after it averages the generation seeds.
+- The resume, budget, state-isolation, and hook-cleanup checks pass.
+
+The old trajectory writer sorted JSON object keys. This action changed tool-schema
+order after reload and changed the rendered prompt. The loader now restores only
+the exact frozen tool schema. New trajectory files preserve mapping order. The raw
+files and all frozen hashes stay unchanged.
+
+Use this procedure in the next round:
+
+1. Run `uv run pytest` and make sure that all 293 tests pass.
+2. Extract `c1-l10-dim` and `c3-l10-dim` from the Phase 0 direction archive.
+3. Run the arm evaluation with `owie-replay-evaluate-arms`.
+4. Read `status.json` and record `cumulative_checkpoint_hours`.
+5. Pass that value as `--prior-hours` when you start the primary collection.
+6. Run the primary collection with the 12 expanded-baseline trajectories.
+7. Run the analysis with both raw results files.
+8. Stop for Checkpoint 5 review before you run the hysteresis experiment.
+
+The arm evaluator requires these paths:
+
+- `runs/checkpoint5-prefixes-2026-08-29/manifest.json`
+- an extracted direction root that contains the two selected bundles
+- `runs/phase0-2026-08-24/sae_features.json`
+- a writable SAE conversion directory
+
+The new implementation entry points are:
+
+- `server/direct.py` for synchronous in-process generation
+- `replay/evaluation.py` for arm-wise retain and safety runs
+- `analysis/checkpoint5.py` for task and item bootstrap intervals
+
+Use these commands to prepare and run the arm metrics:
+
+```bash
+mkdir -p runs/checkpoint5-frozen-artifacts
+tar -xzf runs/phase0-2026-08-24/directions.tar.gz \
+  -C runs/checkpoint5-frozen-artifacts \
+  directions/c1-l10-dim directions/c3-l10-dim
+
+uv run owie-replay-evaluate-arms \
+  --run-dir runs/checkpoint5-arm-evaluation-2026-08-29 \
+  --prefix-manifest runs/checkpoint5-prefixes-2026-08-29/manifest.json \
+  --direction-root runs/checkpoint5-frozen-artifacts/directions \
+  --sae-selection runs/phase0-2026-08-24/sae_features.json \
+  --sae-cache-dir runs/checkpoint5-sae-cache \
+  --device mps --local-files-only
+```
+
+Then start the server in a separate terminal:
+
+```bash
+uv run owie-server \
+  --direction c1-l10-dim --direction c3-l10-dim \
+  --direction-root runs/checkpoint5-frozen-artifacts/directions \
+  --sham-seed 11 --sham-seed 22 --sham-seed 33 \
+  --sae-c1-rank0 \
+  --sae-selection runs/phase0-2026-08-24/sae_features.json \
+  --sae-cache-dir runs/checkpoint5-sae-cache \
+  --local-files-only
+```
+
+Run the primary collection in the first terminal:
+
+```bash
+uv run owie-replay-collect \
+  --run-dir runs/checkpoint5-primary-2026-08-29 \
+  --prior-hours <hours-from-arm-evaluation-status> \
+  runs/checkpoint5-expanded-baseline-2026-08-29-*/trajectory-1.jsonl
+```
+
+Generate the combined analysis after both runs are complete:
+
+```bash
+uv run owie-replay-analyse \
+  --results runs/checkpoint5-primary-2026-08-29/results.jsonl \
+  --arm-evaluation-results runs/checkpoint5-arm-evaluation-2026-08-29/results.jsonl \
+  --output runs/checkpoint5-primary-2026-08-29/analysis.json
+```
+
+Use `--local-files-only` because the model and SAE source files are in the local
+Hugging Face cache. Use `--device mps` for the full model run.
+
+The primary collection still requires a local `owie-server` process. Register the
+two fitted directions, all three sham seeds, and the frozen SAE feature. Use the
+same artifact paths that the arm evaluator uses.
+
+The six-day limit is cumulative. The conservative charge before these two runs is
+`0.5116092620369616` hours. Do not reset this value during a resume or between runs.
+
+Open rulings remain in `DECISIONS.md` section D. No open ruling blocks the primary
+collection.
 
 ## 8. Discipline that is binding, not aspirational
 

@@ -11,13 +11,16 @@ from server.api import create_app
 from server.backend import (
     BackendCompletion,
     RegisteredDirection,
+    RegisteredSAEFeature,
     TransformersBackend,
     encode_tool_call,
+    registered_sham,
 )
 from server.rendering import MODEL_ID, load_pinned_tokenizer, render_chat
 from server.runtime import (
     InterventionConfig,
     RequestState,
+    SAEFeature,
     SerializedGenerationRuntime,
     current_request_state,
 )
@@ -46,6 +49,19 @@ def test_models_endpoint():
     response = client(FakeBackend()).get("/v1/models")
     assert response.status_code == 200
     assert response.json()["data"][0]["id"] == MODEL_ID
+
+
+def test_registered_sham_is_reproducible_and_unit_norm():
+    first = registered_sham(11, 8, layer=3)
+    second = registered_sham(11, 8, layer=3)
+    other = registered_sham(22, 8, layer=3)
+
+    assert torch.equal(first.vector, second.vector)
+    assert first.bundle_hash == second.bundle_hash
+    assert first.bundle_hash != other.bundle_hash
+    assert float(first.vector.norm()) == pytest.approx(1.0)
+    assert first.layer == 3
+    assert first.normalization == "unit"
 
 
 def test_nonstreaming_chat_completion_and_unknown_field():
@@ -100,6 +116,28 @@ def test_intervention_is_read_only_from_top_level_field():
     telemetry = response.json()["owie"]
     assert telemetry["intervention"]["selected_token_count"] > 0
     assert telemetry["intervention"]["config"]["direction_id"] == "compliance-v1"
+
+
+def test_api_accepts_registered_sae_intervention_shape():
+    backend = FakeBackend()
+    response = client(backend).post(
+        "/v1/chat/completions",
+        json={
+            "messages": [
+                {"role": "user", "content": "go"},
+                {"role": "tool", "content": "result"},
+            ],
+            "intervention": {
+                "enabled": True,
+                "direction_id": "sae-c1-rank0-feature-1584",
+                "layer": 19,
+                "mode": "clamp_sae",
+                "direction_norm": "raw",
+            },
+        },
+    )
+    assert response.status_code == 200
+    assert backend.seen[0][1].config.mode == "clamp_sae"
 
 
 def test_streaming_is_rejected():
@@ -173,8 +211,10 @@ class DeterministicGenerateModel(torch.nn.Module):
         super().__init__()
         self.anchor = torch.nn.Parameter(torch.zeros(()))
         self.generated_ids = torch.tensor([generated_ids], dtype=torch.long)
+        self.seen_generation = None
 
-    def generate(self, input_ids, **_kwargs):
+    def generate(self, input_ids, **kwargs):
+        self.seen_generation = kwargs
         return torch.cat((input_ids, self.generated_ids.to(input_ids.device)), dim=1)
 
 
@@ -220,6 +260,22 @@ def test_generation_at_token_cap_reports_length():
         ),
     )
     assert completion.finish_reason == "length"
+
+
+def test_backend_obeys_request_to_disable_kv_cache():
+    tokenizer = load_pinned_tokenizer(local_files_only=True)
+    rendered = render_chat(tokenizer, [{"role": "user", "content": "hi"}])
+    model = DeterministicGenerateModel([])
+    TransformersBackend(model, tokenizer).complete(
+        rendered,
+        SimpleNamespace(temperature=0.0, max_tokens=1, seed=0, use_cache=False),
+        RequestState(
+            InterventionConfig(enabled=False),
+            rendered.primary_mask,
+            rendered.whole_tool_block_mask,
+        ),
+    )
+    assert model.seen_generation["use_cache"] is False
 
 
 class FailingGenerateModel(torch.nn.Module):
@@ -268,6 +324,55 @@ def test_generation_failure_clears_state_and_removes_model_hook():
     with pytest.raises(RuntimeError, match="intentional generation failure"):
         asyncio.run(run_failure())
     assert current_request_state() is None
+    assert not model.model.layers[0]._forward_hooks
+
+
+def test_sae_generation_failure_removes_model_hook():
+    tokenizer = load_pinned_tokenizer(local_files_only=True)
+    rendered = render_chat(
+        tokenizer,
+        [
+            {"role": "user", "content": "go"},
+            {"role": "tool", "content": "result"},
+        ],
+    )
+    model = FailingGenerateModel()
+    feature = SAEFeature(
+        feature_index=1584,
+        encoder_row=torch.tensor([1.0]),
+        encoder_bias=0.0,
+        decoder_column=torch.tensor([1.0]),
+        sae_hash="sha256:test",
+    )
+    backend = TransformersBackend(
+        model,
+        tokenizer,
+        sae_features={
+            "sae-c1-rank0-feature-1584": RegisteredSAEFeature(
+                feature,
+                layer=0,
+                artifact_hash="sha256:test",
+            )
+        },
+    )
+    state = RequestState(
+        InterventionConfig(
+            enabled=True,
+            direction_id="sae-c1-rank0-feature-1584",
+            layer=0,
+            mode="clamp_sae",
+            direction_norm="raw",
+        ),
+        rendered.primary_mask,
+        rendered.whole_tool_block_mask,
+    )
+
+    with pytest.raises(RuntimeError, match="intentional generation failure"):
+        backend.complete(
+            rendered,
+            SimpleNamespace(temperature=0.0, max_tokens=8, seed=None),
+            state,
+        )
     assert not model.model.layers[0]._forward_hooks
 
 

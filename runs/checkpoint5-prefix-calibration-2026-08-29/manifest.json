@@ -1,0 +1,60 @@
+{
+  "config": {
+    "checkpoint_budget_hours": 144.0,
+    "max_new_tokens_safety": 96,
+    "prior_checkpoint_hours": 0.5,
+    "seed": 0
+  },
+  "dataset_hashes": {
+    "retain": "sha256:703f0b6f756e986ec6d3bbb409a7381a17d25e4afe40f86148b289f78af920b2",
+    "safety": "sha256:76139a547b86cd2f5cf6cf966af1c7d4c869fc832a41e987334c1d9aef80565a"
+  },
+  "dependencies": {
+    "numpy": "2.5.2",
+    "safetensors": "0.8.0",
+    "tokenizers": "0.22.2",
+    "torch": "2.13.0",
+    "transformers": "5.15.1"
+  },
+  "determinism": {
+    "batching": false,
+    "caching": false,
+    "compaction": false,
+    "concurrency": false,
+    "deterministic_algorithms": true,
+    "generation_api": 0,
+    "greedy_decoding": true,
+    "numpy": 0,
+    "python": 0,
+    "retries": false,
+    "sampling": false,
+    "torch": 0
+  },
+  "git_revision": "02e3fd4b713118a725544dc448efc004a5d70231",
+  "intervention": {
+    "enabled": false
+  },
+  "model": {
+    "d_model": 4096,
+    "device": "mps",
+    "dtype": "bfloat16",
+    "hook_point": "resid_post",
+    "is_pilot": false,
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+    "n_layers": 32
+  },
+  "platform": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "processor": "arm"
+  },
+  "prefix_manifest": {
+    "manifest_hash": "sha256:b38dee512862caa80bfd7f6525b516e4f801bae1adf7fc02f705878681fe5c18",
+    "path": "runs/checkpoint5-prefixes-2026-08-29/manifest.json",
+    "task_set_hash": "sha256:d98940e437ff08c79f18f508976ca49ec38c54de4c6d9ba150889137905483de"
+  },
+  "python": "3.12.12 (main, Oct  9 2025, 11:07:00) [Clang 17.0.0 (clang-1700.6.3.2)]",
+  "run_id": "checkpoint5-prefix-calibration-2026-08-29",
+  "schema_version": 1
+}

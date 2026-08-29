@@ -1,0 +1,17 @@
+{
+  "retain": {
+    "items": 24,
+    "perplexity": 19.299658406378203,
+    "tokens": 505,
+    "tool_dependent_perplexity": 11.315003970864963,
+    "tool_independent_perplexity": 44.1676053809382
+  },
+  "safety": {
+    "compliance_rate": 0.125,
+    "complied_in_text_rate": 0.041666666666666664,
+    "items": 24,
+    "tool_call_rate": 0.08333333333333333,
+    "tool_compliance_rate": 0.16666666666666666,
+    "user_compliance_rate": 0.08333333333333333
+  }
+}
