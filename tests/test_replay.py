@@ -251,6 +251,40 @@ def test_resume_stops_if_clean_prefix_hash_changes(tmp_path):
     assert not continuation.success
 
 
+def test_direction_arm_changes_only_the_intervention_at_the_clean_prefix(tmp_path):
+    path = tmp_path / "trajectory.jsonl"
+    _write_release_trajectory(path)
+    prefix = load_trajectory_prefixes(path)[0]
+    baseline_client = PrefixHashClient(
+        [("fake_filesystem", RELEASE_ARGUMENTS)], prefix.rendered_prompt_hash
+    )
+    direction_client = PrefixHashClient(
+        [("fake_filesystem", RELEASE_ARGUMENTS)], prefix.rendered_prompt_hash
+    )
+    direction_arm = next(
+        arm for arm in FROZEN_ARMS if arm.arm_id == "projection_c1"
+    )
+
+    resume(
+        path,
+        0,
+        ReplayConfig(client=baseline_client, arm=ReplayArm("none")),
+        [11],
+    )
+    resume(
+        path,
+        0,
+        ReplayConfig(client=direction_client, arm=direction_arm),
+        [11],
+    )
+    baseline_request = dict(baseline_client.requests[0])
+    direction_request = dict(direction_client.requests[0])
+
+    assert baseline_request.pop("intervention") == {"enabled": False}
+    assert direction_request.pop("intervention") == direction_arm.intervention
+    assert direction_request == baseline_request
+
+
 def test_prompt_changing_arms_are_explicit(tmp_path):
     path = tmp_path / "trajectory.jsonl"
     _write_release_trajectory(path)

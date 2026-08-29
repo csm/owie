@@ -1,8 +1,7 @@
 # HANDOFF
 
-State of the project as of **2026-08-29**, after the Checkpoint 5 baseline and
-paired-replay protocol were frozen. Written for whoever picks this up next, including a future me with
-no memory of the run.
+State of the project as of **2026-08-29**, after the Checkpoint 5 implementation
+passed its pre-collection acceptance checks. The primary collection has not started.
 
 Read `doc/TODO.md` first — it is the assignment and the source of every settled
 decision. Then `DECISIONS.md` §A–§C. This document is the map, not a
@@ -19,18 +18,17 @@ replacement for either.
 | 2 | **Phase 0 single-turn experiment** | **done — 460 cells, 16.2 h, results below** |
 | 3 | Provenance-aware shim, renderer, span mapping | done |
 | 4 | Deterministic ReAct loop | **done — normalized 3B pilot trajectories are byte-identical** |
-| 5 | Paired replay, primary experiment | in progress; baseline and protocol frozen, collection not started |
+| 5 | Paired replay, primary experiment | implementation complete; collection not started |
 | 6 | External validity | gated on Phase 2 review |
 
-283 tests pass (`uv run pytest`). No test loads model weights; where a forward
-pass is unavoidable a tiny randomly-initialized Llama with the pinned tokenizer
-stands in.
+293 tests pass (`uv run pytest`). No test loads full model weights. A tiny random
+Llama model covers the direct replay path.
 
 ## 2. Running things
 
 ```bash
 uv sync                      # exact locked deps; Python 3.12
-uv run pytest                # 250 tests, no network, no weights
+uv run pytest                # 293 tests, no network, no full weights
 
 uv run owie-build-datasets   # regenerate frozen datasets; must be byte-identical
 uv run owie-phase0 --run-dir runs/<id> --tranche A --budget-hours 72
@@ -40,6 +38,9 @@ uv run owie-server --direction <bundle-id>             # Checkpoint 3 shim
 uv run owie-server --pilot-3b                           # non-reporting pilot
 uv run owie-loop --pilot-3b --task injection_forged_header \
   --seed 0 --repeat 2 --run-dir runs/<id>
+uv run owie-replay-evaluate-arms --help
+uv run owie-replay-collect --help
+uv run owie-replay-analyse --help
 ```
 
 The sweep is **resumable and keyed by cell**: re-running the same command skips
@@ -186,26 +187,106 @@ See `CHECKPOINT4.md` for the failed attempt and the complete result.
 
 ## 7. What to do next
 
-1. **Stop for Checkpoint 4 review.** The acceptance gate passed. The 3B model
-   emitted invalid multi-call content and did not complete the task. B6 makes
-   this a non-reporting determinism pilot, not a model-quality result.
-2. **D13 is resolved at six days / 144 h.** The ceiling is cumulative across
-   baseline probes and collection. See `DECISIONS.md` B8.
-3. **Expanded baseline is complete.** The 12-task neutral baseline has 3/8
-   attack success and 8/12 task success. See `CHECKPOINT5_BASELINE.md`.
-4. **Retain and safety calibration is complete.** The current revision exactly
-   reproduced the Phase 0 baseline values on 48 items.
-5. **The paired-replay protocol is frozen.** See `PAIRED_REPLAY_PROTOCOL.md`.
-   The prefix and arm-grid hashes are fixed there.
-6. **Finish the pre-collection acceptance tests.** Exact-prefix resume,
-   frozen-arm collection, SAE service, sham creation, resumption, and the
-   budget stop are implemented. Arm-wise retain and safety execution, paired
-   bootstrap analysis, and direct tiny-model acceptance remain.
-7. **Then start Checkpoint 5 primary collection.** Do not start while any
-   acceptance item in `PAIRED_REPLAY_PROTOCOL.md` section 11 is incomplete.
+The pre-collection implementation is complete. The following checks pass:
 
-Open rulings still outstanding are in `DECISIONS.md` §D. No ruling blocks the
-next baseline step. The protocol gates still block primary collection.
+- The loader reproduces all 23 frozen rendered-prompt hashes.
+- The repair does not change the frozen manifest hash `sha256:b38d...c18`.
+- A tiny Llama model reproduces its stored first continuation.
+- A direction arm changes only the intervention field at the clean prefix.
+- The arm evaluator schedules 624 records across all arms and metric items.
+- The retain and safety analysis resamples paired dataset items.
+- The task analysis resamples tasks after it averages the generation seeds.
+- The resume, budget, state-isolation, and hook-cleanup checks pass.
+
+The old trajectory writer sorted JSON object keys. This action changed tool-schema
+order after reload and changed the rendered prompt. The loader now restores only
+the exact frozen tool schema. New trajectory files preserve mapping order. The raw
+files and all frozen hashes stay unchanged.
+
+Use this procedure in the next round:
+
+1. Run `uv run pytest` and make sure that all 293 tests pass.
+2. Extract `c1-l10-dim` and `c3-l10-dim` from the Phase 0 direction archive.
+3. Run the arm evaluation with `owie-replay-evaluate-arms`.
+4. Read `status.json` and record `cumulative_checkpoint_hours`.
+5. Pass that value as `--prior-hours` when you start the primary collection.
+6. Run the primary collection with the 12 expanded-baseline trajectories.
+7. Run the analysis with both raw results files.
+8. Stop for Checkpoint 5 review before you run the hysteresis experiment.
+
+The arm evaluator requires these paths:
+
+- `runs/checkpoint5-prefixes-2026-08-29/manifest.json`
+- an extracted direction root that contains the two selected bundles
+- `runs/phase0-2026-08-24/sae_features.json`
+- a writable SAE conversion directory
+
+The new implementation entry points are:
+
+- `server/direct.py` for synchronous in-process generation
+- `replay/evaluation.py` for arm-wise retain and safety runs
+- `analysis/checkpoint5.py` for task and item bootstrap intervals
+
+Use these commands to prepare and run the arm metrics:
+
+```bash
+mkdir -p runs/checkpoint5-frozen-artifacts
+tar -xzf runs/phase0-2026-08-24/directions.tar.gz \
+  -C runs/checkpoint5-frozen-artifacts \
+  directions/c1-l10-dim directions/c3-l10-dim
+
+uv run owie-replay-evaluate-arms \
+  --run-dir runs/checkpoint5-arm-evaluation-2026-08-29 \
+  --prefix-manifest runs/checkpoint5-prefixes-2026-08-29/manifest.json \
+  --direction-root runs/checkpoint5-frozen-artifacts/directions \
+  --sae-selection runs/phase0-2026-08-24/sae_features.json \
+  --sae-cache-dir runs/checkpoint5-sae-cache \
+  --device mps --local-files-only
+```
+
+Then start the server in a separate terminal:
+
+```bash
+uv run owie-server \
+  --direction c1-l10-dim --direction c3-l10-dim \
+  --direction-root runs/checkpoint5-frozen-artifacts/directions \
+  --sham-seed 11 --sham-seed 22 --sham-seed 33 \
+  --sae-c1-rank0 \
+  --sae-selection runs/phase0-2026-08-24/sae_features.json \
+  --sae-cache-dir runs/checkpoint5-sae-cache \
+  --local-files-only
+```
+
+Run the primary collection in the first terminal:
+
+```bash
+uv run owie-replay-collect \
+  --run-dir runs/checkpoint5-primary-2026-08-29 \
+  --prior-hours <hours-from-arm-evaluation-status> \
+  runs/checkpoint5-expanded-baseline-2026-08-29-*/trajectory-1.jsonl
+```
+
+Generate the combined analysis after both runs are complete:
+
+```bash
+uv run owie-replay-analyse \
+  --results runs/checkpoint5-primary-2026-08-29/results.jsonl \
+  --arm-evaluation-results runs/checkpoint5-arm-evaluation-2026-08-29/results.jsonl \
+  --output runs/checkpoint5-primary-2026-08-29/analysis.json
+```
+
+Use `--local-files-only` because the model and SAE source files are in the local
+Hugging Face cache. Use `--device mps` for the full model run.
+
+The primary collection still requires a local `owie-server` process. Register the
+two fitted directions, all three sham seeds, and the frozen SAE feature. Use the
+same artifact paths that the arm evaluator uses.
+
+The six-day limit is cumulative. The conservative charge before these two runs is
+`0.5116092620369616` hours. Do not reset this value during a resume or between runs.
+
+Open rulings remain in `DECISIONS.md` section D. No open ruling blocks the primary
+collection.
 
 ## 8. Discipline that is binding, not aspirational
 
