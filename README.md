@@ -38,7 +38,7 @@ the analysis — are implemented and tested. Model weights are loaded only when
 | 2 | Phase 0 single-turn experiment | **done** — 460 cells, 16.2 h; see `runs/` and `analysis/phase0.md` |
 | 3 | Provenance-aware shim, renderer, span mapping | **done** |
 | 4 | Deterministic ReAct loop | **done** — normalized 3B pilot trajectories are byte-identical |
-| 5 | Paired replay, primary experiment | **in progress** — six-day budget approved; baseline calibration active |
+| 5 | Paired replay, primary experiment | **in progress** — baseline and protocol frozen; replay implementation active |
 | 6 | External validity | gated on Phase 2 review |
 
 ## Setup

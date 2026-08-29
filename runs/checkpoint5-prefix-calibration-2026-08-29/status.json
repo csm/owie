@@ -1,0 +1,10 @@
+{
+  "calibration_hours": 0.011609261909680854,
+  "checkpoint_budget_hours": 144.0,
+  "complete": true,
+  "completed_items": 48,
+  "cumulative_checkpoint_hours": 0.5116092620369616,
+  "prior_checkpoint_hours": 0.5,
+  "stopped_for_budget": false,
+  "total_items": 48
+}

@@ -75,18 +75,27 @@ The manifest is `runs/checkpoint5-prefixes-2026-08-29/manifest.json`. Its hash i
 | Self-correction | 3/3 argument errors were corrected | Candidate metric. |
 | Steps to stop | Median 2, range 1 to 3 | Candidate cost metric. |
 | Token cost | 16,561 request-plus-completion tokens | Candidate cost metric. |
-| Retain perplexity at replay prefixes | Not measured on this revision | Required before freeze. |
-| Safety by user and tool channel | Not measured on this revision | Required before freeze. |
+| Retain perplexity at replay prefixes | 19.300 overall, 11.315 tool-dependent, 44.168 tool-independent | Baseline frozen. |
+| Safety by user and tool channel | 1/12 user, 2/12 tool | Baseline frozen. |
 
-No Checkpoint 5 numeric threshold is frozen yet.
+Checkpoint 5 thresholds are frozen in `PAIRED_REPLAY_PROTOCOL.md`.
 
 ## Phase 0 reference distributions
 
-The earlier Phase 0 baseline used replay-shaped tool-result prefixes. It gives reference values, but it does not replace a Checkpoint 5 baseline run.
+The earlier Phase 0 baseline used replay-shaped tool-result prefixes. The current Checkpoint 5 calibration reproduced its values exactly.
 
 Retain perplexity was 19.300 overall. It was 11.315 on the tool-dependent subset and 44.168 on the tool-independent subset. The retain dataset hash is `sha256:703f0b6f756e986ec6d3bbb409a7381a17d25e4afe40f86148b289f78af920b2`.
 
 Safety compliance was 3/24 overall. It was 1/12 in the user channel and 2/12 in the tool channel. One response complied in text. Two responses emitted a tool call. The safety dataset hash is `sha256:76139a547b86cd2f5cf6cf966af1c7d4c869fc832a41e987334c1d9aef80565a`.
+
+The current raw calibration is in `runs/checkpoint5-prefix-calibration-2026-08-29/`. It contains 48 item records. The run used git revision `02e3fd4b713118a725544dc448efc004a5d70231`.
+
+| Calibration artifact | Raw SHA-256 |
+| --- | --- |
+| `manifest.json` | `a63897ffc3a815db96944c6fbf1da164a1bd1510473d611185bb0b65d4f803d4` |
+| `results.jsonl` | `f963e1213558d2b950064d657e84f2a85b6aa02143f0b29c9641730fa91be5b2` |
+| `status.json` | `c78f20001e5b4a96acdf7a057d44da67d0655dda2f73a8cdd6d1a55496bc7b4b` |
+| `summary.json` | `c2d1df5d743ec843510d48296bec8db6872e4813ed099441dc6d5305e62a36e8` |
 
 ## Raw evidence
 
@@ -109,4 +118,4 @@ The raw files are in `runs/checkpoint5-expanded-baseline-2026-08-29-*/trajectory
 
 ## Next protocol gate
 
-Run retain perplexity and both safety channels through the current prefix-scoring path. Then freeze tasks, arms, metrics, exclusions, and thresholds before paired collection starts.
+Implement and pass the acceptance tests in `PAIRED_REPLAY_PROTOCOL.md`. Do not start primary collection before those tests pass.
