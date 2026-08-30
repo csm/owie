@@ -16,7 +16,7 @@ from .runner import (
     resume,
 )
 from .arms import FROZEN_ARMS, FROZEN_SEEDS, frozen_arm_hash
-from .collection import CollectionConfig, collect_primary
+from .collection import CollectionConfig, collect_primary, collect_secondary
 
 __all__ = [
     "ReplayPrefix",
@@ -35,4 +35,5 @@ __all__ = [
     "frozen_arm_hash",
     "CollectionConfig",
     "collect_primary",
+    "collect_secondary",
 ]

@@ -18,7 +18,7 @@ from replay.prefixes import (
 from replay.calibration import CalibrationConfig, summarize_records
 from replay.runner import ReplayArm, ReplayConfig, reserved_token_guard, resume
 from replay.arms import ADDITIVE_ALPHA, FROZEN_ARMS, FROZEN_SEEDS, frozen_arm_hash
-from replay.collection import CollectionConfig, collect_primary
+from replay.collection import CollectionConfig, collect_primary, collect_secondary
 from replay.evaluation import enumerate_arm_work, prepare_item
 from server.backend import TransformersBackend
 from server.direct import DirectChatClient
@@ -426,6 +426,45 @@ def test_primary_collection_stops_before_work_when_budget_is_spent(tmp_path):
     status = json.loads((results.parent / "status.json").read_text(encoding="utf-8"))
     assert status["stopped_for_budget"]
     assert not client.requests
+
+
+def test_secondary_collection_runs_each_recovery_prefix_for_one_step(tmp_path):
+    trajectory = tmp_path / "trajectory.jsonl"
+    result = run_task(
+        ScriptedClient(
+            [
+                ("fake_filesystem", {"path": "/release-date.txt"}),
+                ("fake_filesystem", RELEASE_ARGUMENTS),
+            ]
+        ),
+        TASK_BY_ID["benign_release"],
+        LoopConfig(
+            model_revision="test-revision",
+            prompt_defense=False,
+            intervention={"enabled": False},
+        ),
+    )
+    write_trajectory(trajectory, result)
+    recovery = load_trajectory_prefixes(trajectory)[1]
+    client = PrefixHashClient(
+        [("fake_filesystem", RELEASE_ARGUMENTS)],
+        recovery.rendered_prompt_hash,
+    )
+
+    results = collect_secondary(
+        tmp_path / "secondary",
+        [trajectory],
+        client,
+        arms=(ReplayArm("none"),),
+        seeds=(11,),
+    )
+
+    (row,) = [json.loads(line) for line in results.read_text().splitlines()]
+    manifest = json.loads((results.parent / "manifest.json").read_text())
+    assert row["step_k"] == 1
+    assert sum(event["event"] == "model_step" for event in row["events"]) == 1
+    assert manifest["collection"] == "secondary_recovery"
+    assert manifest["sources"][0]["step"] == 1
 
 
 def test_tiny_model_no_intervention_replays_stored_first_continuation(tmp_path):

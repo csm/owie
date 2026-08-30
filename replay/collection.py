@@ -16,7 +16,7 @@ from directions.bundle import current_git_revision
 from loop.runner import ChatClient, OpenAIHTTPClient
 from loop.tasks import TASK_BY_ID
 from replay.arms import FROZEN_ARMS, FROZEN_SEEDS, frozen_arm_hash
-from replay.prefixes import load_trajectory_prefixes
+from replay.prefixes import ReplayPrefix, load_trajectory_prefixes
 from replay.runner import Continuation, ReplayArm, ReplayConfig, continuation_id, resume
 
 
@@ -78,26 +78,45 @@ def _record(continuation: Continuation, source_path: Path) -> dict[str, Any]:
     }
 
 
-def collect_primary(
-    run_dir: Path,
-    trajectories: Iterable[Path],
-    client: ChatClient,
-    config: CollectionConfig = CollectionConfig(),
+def _prefix_manifest_entry(
+    source: Path,
+    prefix: ReplayPrefix,
     *,
-    arms: Sequence[ReplayArm] = FROZEN_ARMS,
-    seeds: Sequence[int] = FROZEN_SEEDS,
-) -> Path:
-    """Collect every step-zero task, arm, and seed without duplicate records."""
+    include_step: bool,
+) -> dict[str, Any]:
+    entry = {
+        "path": str(source),
+        "task_id": prefix.task_id,
+        "task_hash": prefix.task_hash,
+        "source_sha256": prefix.source_sha256,
+        "prefix_id": prefix.prefix_id,
+        "request_hash": prefix.request_hash,
+        "rendered_prompt_hash": prefix.rendered_prompt_hash,
+    }
+    if include_step:
+        entry["step"] = prefix.step
+    return entry
 
+
+def _collect_prefixes(
+    run_dir: Path,
+    source_prefixes: Sequence[tuple[Path, ReplayPrefix]],
+    client: ChatClient,
+    config: CollectionConfig,
+    *,
+    collection_name: str,
+    include_step_in_manifest: bool,
+    arms: Sequence[ReplayArm],
+    seeds: Sequence[int],
+) -> Path:
     started = time.monotonic()
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     results_path = run_dir / "results.jsonl"
     manifest_path = run_dir / "manifest.json"
     status_path = run_dir / "status.json"
-    sources = tuple(sorted({Path(path) for path in trajectories}, key=str))
-    if not sources:
-        raise ValueError("at least one trajectory is required")
+    if not source_prefixes:
+        raise ValueError("at least one replay prefix is required")
     if not arms or not seeds:
         raise ValueError("collection requires at least one arm and seed")
     if len({arm.arm_id for arm in arms}) != len(arms):
@@ -105,35 +124,20 @@ def collect_primary(
     if len(set(seeds)) != len(seeds):
         raise ValueError("generation seeds must be unique")
 
-    prefixes = []
-    for source in sources:
-        step_zero = [prefix for prefix in load_trajectory_prefixes(source) if prefix.step == 0]
-        if len(step_zero) != 1:
-            raise ValueError(f"{source}: expected one step-zero prefix")
-        prefixes.append(step_zero[0])
-    if len({prefix.task_id for prefix in prefixes}) != len(prefixes):
-        raise ValueError("primary trajectories must contain unique tasks")
-    if tuple(arms) == FROZEN_ARMS and {prefix.task_id for prefix in prefixes} != set(TASK_BY_ID):
-        raise ValueError("frozen primary collection requires every candidate task")
-
     manifest = {
         "schema_version": 1,
         "run_id": run_dir.name,
         "git_revision": current_git_revision(),
-        "collection": "primary_step_zero",
+        "collection": collection_name,
         "config": asdict(config),
-        "task_set_hash": prefixes[0].task_set_hash,
+        "task_set_hash": source_prefixes[0][1].task_set_hash,
         "sources": [
-            {
-                "path": str(source),
-                "task_id": prefix.task_id,
-                "task_hash": prefix.task_hash,
-                "source_sha256": prefix.source_sha256,
-                "prefix_id": prefix.prefix_id,
-                "request_hash": prefix.request_hash,
-                "rendered_prompt_hash": prefix.rendered_prompt_hash,
-            }
-            for source, prefix in zip(sources, prefixes)
+            _prefix_manifest_entry(
+                source,
+                prefix,
+                include_step=include_step_in_manifest,
+            )
+            for source, prefix in source_prefixes
         ],
         "arms": [asdict(arm) for arm in arms],
         "seeds": list(seeds),
@@ -174,12 +178,11 @@ def collect_primary(
         return config.prior_checkpoint_hours + collection_hours()
 
     completed = _completed(results_path)
-    total = len(sources) * len(arms) * len(seeds)
+    total = len(source_prefixes) * len(arms) * len(seeds)
     stopped_for_budget = False
-    for source in sources:
+    for source, prefix in source_prefixes:
         for seed in seeds:
             for arm in arms:
-                prefix = next(item for item in prefixes if item.source_path == str(source))
                 expected_id = continuation_id(prefix, arm, seed, config.max_steps)
                 if expected_id in completed:
                     continue
@@ -188,7 +191,7 @@ def collect_primary(
                     break
                 identity = resume(
                     source,
-                    0,
+                    prefix.step,
                     ReplayConfig(client=client, arm=arm, max_steps=config.max_steps),
                     [seed],
                 )[0]
@@ -230,11 +233,94 @@ def collect_primary(
     return results_path
 
 
+def collect_primary(
+    run_dir: Path,
+    trajectories: Iterable[Path],
+    client: ChatClient,
+    config: CollectionConfig = CollectionConfig(),
+    *,
+    arms: Sequence[ReplayArm] = FROZEN_ARMS,
+    seeds: Sequence[int] = FROZEN_SEEDS,
+) -> Path:
+    """Collect every step-zero task, arm, and seed without duplicate records."""
+
+    sources = tuple(sorted({Path(path) for path in trajectories}, key=str))
+    if not sources:
+        raise ValueError("at least one trajectory is required")
+    prefixes = []
+    for source in sources:
+        step_zero = [prefix for prefix in load_trajectory_prefixes(source) if prefix.step == 0]
+        if len(step_zero) != 1:
+            raise ValueError(f"{source}: expected one step-zero prefix")
+        prefixes.append(step_zero[0])
+    if len({prefix.task_id for prefix in prefixes}) != len(prefixes):
+        raise ValueError("primary trajectories must contain unique tasks")
+    if tuple(arms) == FROZEN_ARMS and {prefix.task_id for prefix in prefixes} != set(TASK_BY_ID):
+        raise ValueError("frozen primary collection requires every candidate task")
+    return _collect_prefixes(
+        run_dir,
+        tuple(zip(sources, prefixes)),
+        client,
+        config,
+        collection_name="primary_step_zero",
+        include_step_in_manifest=False,
+        arms=arms,
+        seeds=seeds,
+    )
+
+
+def collect_secondary(
+    run_dir: Path,
+    trajectories: Iterable[Path],
+    client: ChatClient,
+    config: CollectionConfig | None = None,
+    *,
+    arms: Sequence[ReplayArm] = FROZEN_ARMS,
+    seeds: Sequence[int] = FROZEN_SEEDS,
+) -> Path:
+    """Collect one completion from every post-step-zero recovery prefix."""
+
+    resolved_config = config or CollectionConfig(max_steps=1)
+    if resolved_config.max_steps != 1:
+        raise ValueError("secondary recovery collection requires max_steps=1")
+    sources = tuple(sorted({Path(path) for path in trajectories}, key=str))
+    if not sources:
+        raise ValueError("at least one trajectory is required")
+    source_prefixes = tuple(
+        (source, prefix)
+        for source in sources
+        for prefix in load_trajectory_prefixes(source)
+        if prefix.step > 0
+    )
+    prefix_ids = [prefix.prefix_id for _, prefix in source_prefixes]
+    if len(prefix_ids) != len(set(prefix_ids)):
+        raise ValueError("secondary trajectories contain duplicate replay prefixes")
+    if tuple(arms) == FROZEN_ARMS and len(source_prefixes) != 11:
+        raise ValueError(
+            "frozen secondary collection requires all 11 recovery prefixes"
+        )
+    return _collect_prefixes(
+        run_dir,
+        source_prefixes,
+        client,
+        resolved_config,
+        collection_name="secondary_recovery",
+        include_step_in_manifest=True,
+        arms=arms,
+        seeds=seeds,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--budget-hours", type=float, default=144.0)
+    parser.add_argument(
+        "--secondary-recovery",
+        action="store_true",
+        help="run one completion from every post-step-zero recovery prefix",
+    )
     parser.add_argument(
         "--prior-hours",
         type=float,
@@ -242,13 +328,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("trajectories", nargs="+", type=Path)
     args = parser.parse_args(argv)
-    collect_primary(
+    collector = collect_secondary if args.secondary_recovery else collect_primary
+    collector(
         args.run_dir,
         args.trajectories,
         OpenAIHTTPClient(args.base_url),
         CollectionConfig(
             checkpoint_budget_hours=args.budget_hours,
             prior_checkpoint_hours=args.prior_hours,
+            max_steps=1 if args.secondary_recovery else 8,
         ),
     )
     return 0
