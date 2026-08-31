@@ -1,7 +1,7 @@
 # HANDOFF
 
-State of the project as of **2026-08-29**, after the Checkpoint 5 implementation
-passed its pre-collection acceptance checks. The primary collection has not started.
+State of the project as of **2026-08-31**, after Checkpoint 5 collection and
+analysis. No primary direction arm is eligible.
 
 Read `doc/TODO.md` first — it is the assignment and the source of every settled
 decision. Then `DECISIONS.md` §A–§C. This document is the map, not a
@@ -18,17 +18,17 @@ replacement for either.
 | 2 | **Phase 0 single-turn experiment** | **done — 460 cells, 16.2 h, results below** |
 | 3 | Provenance-aware shim, renderer, span mapping | done |
 | 4 | Deterministic ReAct loop | **done — normalized 3B pilot trajectories are byte-identical** |
-| 5 | Paired replay, primary experiment | implementation complete; collection not started |
+| 5 | Paired replay, primary experiment | **done — no primary direction arm is eligible** |
 | 6 | External validity | gated on Phase 2 review |
 
-293 tests pass (`uv run pytest`). No test loads full model weights. A tiny random
+296 tests pass (`uv run pytest`). No test loads full model weights. A tiny random
 Llama model covers the direct replay path.
 
 ## 2. Running things
 
 ```bash
 uv sync                      # exact locked deps; Python 3.12
-uv run pytest                # 293 tests, no network, no full weights
+uv run pytest                # 296 tests, no network, no full weights
 
 uv run owie-build-datasets   # regenerate frozen datasets; must be byte-identical
 uv run owie-phase0 --run-dir runs/<id> --tranche A --budget-hours 72
@@ -187,6 +187,25 @@ See `CHECKPOINT4.md` for the failed attempt and the complete result.
 
 ## 7. What to do next
 
+Checkpoint 5 is complete. Read `CHECKPOINT5.md` before you make a new plan.
+
+No primary direction arm is eligible. Do not run the cache-hysteresis
+experiment or Checkpoint 6 without human approval.
+
+The completed Checkpoint 5 artifacts are in these directories:
+
+- `runs/checkpoint5-arm-evaluation-2026-08-29/`
+- `runs/checkpoint5-primary-2026-08-29/`
+- `runs/checkpoint5-secondary-2026-08-30/`
+
+The cumulative Checkpoint 5 charge is 15.86 h of the 144 h limit. The primary
+analysis is `analysis-v2.json`. The recovery analysis is `analysis.json`.
+
+### Archived precollection procedure
+
+The text below records the procedure that produced the data. Do not treat it
+as the current task list.
+
 The pre-collection implementation is complete. The following checks pass:
 
 - The loader reproduces all 23 frozen rendered-prompt hashes.
@@ -205,7 +224,7 @@ files and all frozen hashes stay unchanged.
 
 Use this procedure in the next round:
 
-1. Run `uv run pytest` and make sure that all 293 tests pass.
+1. Run `uv run pytest` and make sure that all 296 tests pass.
 2. Extract `c1-l10-dim` and `c3-l10-dim` from the Phase 0 direction archive.
 3. Run the arm evaluation with `owie-replay-evaluate-arms`.
 4. Read `status.json` and record `cumulative_checkpoint_hours`.
