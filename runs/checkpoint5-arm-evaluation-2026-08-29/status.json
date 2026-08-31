@@ -1,0 +1,10 @@
+{
+  "checkpoint_budget_hours": 144.0,
+  "complete": true,
+  "completed_items": 624,
+  "cumulative_checkpoint_hours": 0.6873815624305926,
+  "evaluation_hours": 0.17577230031239904,
+  "prior_checkpoint_hours": 0.5116092620369616,
+  "stopped_for_budget": false,
+  "total_items": 624
+}

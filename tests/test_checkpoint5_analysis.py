@@ -5,6 +5,7 @@ import math
 import pytest
 
 from analysis.checkpoint5 import (
+    paired_task_reference_mean_bootstrap,
     paired_retain_bootstrap,
     paired_safety_bootstrap,
     paired_task_bootstrap,
@@ -78,6 +79,27 @@ def test_arm_summary_reports_structure_cost_and_task_splits():
     assert summary["argument_schema_validity"] == 1.0
     assert summary["prompt_tokens"] == 20
     assert summary["completion_tokens"] == 4
+    assert summary["total_tokens"] == 24
+    assert summary["self_correction_denominator"] == 0
+    assert summary["self_correction_rate"] is None
+
+
+def test_arm_summary_reports_self_correction_with_denominator():
+    row = _row("benign_release", "arm", 11, success=True, attack=False)
+    row["events"].insert(
+        1,
+        {
+            "event": "tool_step",
+            "tool_name_valid": True,
+            "tool_error": "operation is required",
+        },
+    )
+
+    summary = summarize_arm([row], "arm")
+
+    assert summary["self_correction_count"] == 1
+    assert summary["self_correction_denominator"] == 1
+    assert summary["self_correction_rate"] == 1.0
 
 
 def test_bootstrap_requires_complete_pairs():
@@ -91,6 +113,33 @@ def test_bootstrap_requires_complete_pairs():
             "attack_success",
             injection_only=True,
         )
+
+
+def test_reference_mean_bootstrap_averages_matched_arms_within_task():
+    rows = []
+    for seed in (11, 22, 33):
+        rows.extend(
+            [
+                _row("injection_invoice", "direction", seed, success=True, attack=False),
+                _row("injection_invoice", "sham_a", seed, success=False, attack=True),
+                _row("injection_invoice", "sham_b", seed, success=True, attack=False),
+            ]
+        )
+
+    result = paired_task_reference_mean_bootstrap(
+        rows,
+        "direction",
+        ("sham_a", "sham_b"),
+        "attack_success",
+        injection_only=True,
+        resamples=100,
+        seed=7,
+    )
+
+    assert result["estimate"] == -0.5
+    assert result["task_units"] == 1
+    assert result["arm_seed_records"] == 3
+    assert result["reference_seed_records"] == 6
 
 
 def test_retain_bootstrap_resamples_paired_items_and_preserves_token_weighting():

@@ -1,0 +1,316 @@
+{
+  "arms": [
+    {
+      "arm_id": "none",
+      "intervention": {
+        "enabled": false
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "projection_c1",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "c1-l10-dim",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "additive_c3",
+      "intervention": {
+        "alpha": 3.3473639488220215,
+        "direction_id": "c3-l10-dim",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "add",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "prompt_defense",
+      "intervention": {
+        "enabled": false
+      },
+      "prompt_defense": true,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "reserved_token_guard",
+      "intervention": {
+        "enabled": false
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": true
+    },
+    {
+      "arm_id": "projection_sham_11",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "sham-11",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "projection_sham_22",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "sham-22",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "projection_sham_33",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "sham-33",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "additive_sham_11",
+      "intervention": {
+        "alpha": 3.3473639488220215,
+        "direction_id": "sham-11",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "add",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "additive_sham_22",
+      "intervention": {
+        "alpha": 3.3473639488220215,
+        "direction_id": "sham-22",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "add",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "additive_sham_33",
+      "intervention": {
+        "alpha": 3.3473639488220215,
+        "direction_id": "sham-33",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "add",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "whole_tool_projection_c1",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "c1-l10-dim",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "whole_tool_block"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "sae_c1_rank0",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "sae-c1-rank0-feature-1584",
+        "direction_norm": "raw",
+        "enabled": true,
+        "layer": 19,
+        "mode": "clamp_sae",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    }
+  ],
+  "collection": "secondary_recovery",
+  "config": {
+    "checkpoint_budget_hours": 144.0,
+    "max_steps": 1,
+    "prior_checkpoint_hours": 12.092012392453617
+  },
+  "dependencies": {
+    "numpy": "2.5.2",
+    "safetensors": "0.8.0",
+    "tokenizers": "0.22.2",
+    "torch": "2.13.0",
+    "transformers": "5.15.1"
+  },
+  "frozen_arm_hash": "sha256:95ac4fa3c768ec7e5dc7900ea1de43b3fc8f9e9281467dd27c407ad1b5cc0c5d",
+  "frozen_artifacts": {
+    "c1_vector_hash": "sha256:b9484622f01d453daba92ff92e2901e24f9695e0b880297413253e0171a2be72",
+    "c3_vector_hash": "sha256:c418b98cb21498b5e0cc3bac4c1189bd97df014b97db930afb0c2e4f43817eb7",
+    "prefix_manifest_hash": "sha256:b38dee512862caa80bfd7f6525b516e4f801bae1adf7fc02f705878681fe5c18",
+    "sae_selection_hash": "sha256:2de8241291dc5504f71abb7926ca2e83f9a04ae9a8bc6618b31f3d6e1493eab2",
+    "sae_weights_hash": "sha256:5223dd47c15704c036fef4cbec5feb45355e4b60db7676a4e4e80f1d62cec66d"
+  },
+  "git_revision": "52bd8ae6c178c94a58d9690ea9f1495e5379261a+dirty",
+  "platform": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "processor": "arm"
+  },
+  "python": "3.12.12 (main, Oct  9 2025, 11:07:00) [Clang 17.0.0 (clang-1700.6.3.2)]",
+  "run_id": "checkpoint5-secondary-2026-08-30",
+  "schema_version": 1,
+  "seeds": [
+    11,
+    22,
+    33
+  ],
+  "sources": [
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-benign_oncall/trajectory-1.jsonl",
+      "prefix_id": "prefix_af3a1a2c891e29d8ea0b",
+      "rendered_prompt_hash": "sha256:9d8ade29462ae94de931b6101873e1fa5b885da33754b350f31062cfb39456f0",
+      "request_hash": "sha256:fc76203e44875481d39acf638e36e0d66196c0f8465028f591acd26099ae831e",
+      "source_sha256": "sha256:4c32b798c24f9ec50f633d58b6d3e9547cffd1dec74ec02cc8bef064ea387934",
+      "step": 1,
+      "task_hash": "sha256:265d5a3b801d400c05c76ba595064af373c15ef431fe7bf008a200f878095317",
+      "task_id": "benign_oncall"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-benign_oncall/trajectory-1.jsonl",
+      "prefix_id": "prefix_eb6f2d7b4b7e5b714da9",
+      "rendered_prompt_hash": "sha256:36ac832771e64f535e38739de22d1c5112aadf984c12dbef7a4682ff2e1f4160",
+      "request_hash": "sha256:6ff56d9fcdc84699d694b6790a6d3515c29bd393269533d0de5434c302aea5ff",
+      "source_sha256": "sha256:4c32b798c24f9ec50f633d58b6d3e9547cffd1dec74ec02cc8bef064ea387934",
+      "step": 2,
+      "task_hash": "sha256:265d5a3b801d400c05c76ba595064af373c15ef431fe7bf008a200f878095317",
+      "task_id": "benign_oncall"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-injection_forged_header/trajectory-1.jsonl",
+      "prefix_id": "prefix_9a76c3c8a27e9822bd8b",
+      "rendered_prompt_hash": "sha256:eac86f7fef1c5811fa0619e13853b37f9f93fc7521c6df593619a17c3999a819",
+      "request_hash": "sha256:aba290d0e3aa5e7067ae35bfc3beca1c680421b1b2e27a2af2fb2449ca3433e8",
+      "source_sha256": "sha256:d2585d5ffec1f021574b67b7b4c7fa09043918bba0eaea8bbbc1b626037282b3",
+      "step": 1,
+      "task_hash": "sha256:e079dc4375630a74bc75f559de303ca28199e78a703bf465f0251d485aedd73d",
+      "task_id": "injection_forged_header"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-injection_forged_header/trajectory-1.jsonl",
+      "prefix_id": "prefix_5eaf39bbb95c79740236",
+      "rendered_prompt_hash": "sha256:c3039a645fc02713ad3d7898f705bb6b397bd3a6e498da4964abef2a85ac735a",
+      "request_hash": "sha256:c0a90e378c59de6e22c5bd05324da45946ebd3fa3e5b1c084fafa633926f59ce",
+      "source_sha256": "sha256:d2585d5ffec1f021574b67b7b4c7fa09043918bba0eaea8bbbc1b626037282b3",
+      "step": 2,
+      "task_hash": "sha256:e079dc4375630a74bc75f559de303ca28199e78a703bf465f0251d485aedd73d",
+      "task_id": "injection_forged_header"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-injection_forged_system_kv/trajectory-1.jsonl",
+      "prefix_id": "prefix_d97dc9474edfb46e92d4",
+      "rendered_prompt_hash": "sha256:eca1ea5612b08093fc4bd7cdf4f306bde535645f2921e0b235ea8d1ce5a45ecc",
+      "request_hash": "sha256:6d0977a98553a798b34e1864601666ebe8888764e58a6ac1d21cf1186a13e5b4",
+      "source_sha256": "sha256:b16334e0f4f45bc8fee8c6b5780d02075b2f33ac3413b7e6888614b24940c2d2",
+      "step": 1,
+      "task_hash": "sha256:cd082d60e37764b913fc6c019a4dd2bf0689fbdf1072ba7e81b4ded0d76136e7",
+      "task_id": "injection_forged_system_kv"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-injection_forged_system_kv/trajectory-1.jsonl",
+      "prefix_id": "prefix_b9d83c20083b324993ef",
+      "rendered_prompt_hash": "sha256:40ad25f7a348437dec69b2cfb55d1745dc41267689efa3ec71f7e27d64b3eaf7",
+      "request_hash": "sha256:f5d08202258a1df44e3054568cd4eb72cd5e004646dec96e931fb72b0c42b5ce",
+      "source_sha256": "sha256:b16334e0f4f45bc8fee8c6b5780d02075b2f33ac3413b7e6888614b24940c2d2",
+      "step": 2,
+      "task_hash": "sha256:cd082d60e37764b913fc6c019a4dd2bf0689fbdf1072ba7e81b4ded0d76136e7",
+      "task_id": "injection_forged_system_kv"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-injection_forged_user/trajectory-1.jsonl",
+      "prefix_id": "prefix_6d4e7033fee995b6afad",
+      "rendered_prompt_hash": "sha256:a791e7243af8ebae6ef4f1af2df8359b03091a10a53f018f22a8ab4948b588ad",
+      "request_hash": "sha256:c50ecaab64ef97319987e35fb9351663ddabab68fa8b20bdec440e0c01234b1d",
+      "source_sha256": "sha256:d7cdcedd662b28a0c472889602c2aae65af827fdfbd8c90f50e6936a7d0b2ec7",
+      "step": 1,
+      "task_hash": "sha256:ba3a52b5984b205bc0f6c5c85533a62d91b68914e1cfeeba1eb8f35ebb77ad96",
+      "task_id": "injection_forged_user"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-injection_forged_user/trajectory-1.jsonl",
+      "prefix_id": "prefix_79e977e2fbe5a236594f",
+      "rendered_prompt_hash": "sha256:c1a626912ff946cac5e001f188755ef7ac79869f196e4aef47f2f4f62ca9e0e6",
+      "request_hash": "sha256:b3cb8d20b7bf720cb62898c364947cda11bddbed9e9f210061c57a27b050179c",
+      "source_sha256": "sha256:d7cdcedd662b28a0c472889602c2aae65af827fdfbd8c90f50e6936a7d0b2ec7",
+      "step": 2,
+      "task_hash": "sha256:ba3a52b5984b205bc0f6c5c85533a62d91b68914e1cfeeba1eb8f35ebb77ad96",
+      "task_id": "injection_forged_user"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-injection_html_comment/trajectory-1.jsonl",
+      "prefix_id": "prefix_fdc4b4e134c1904cd336",
+      "rendered_prompt_hash": "sha256:091dc2733d15fd205b1363dfde9017f6d182c5998e69836e8203fddf9c2994d3",
+      "request_hash": "sha256:dd307ba0e8d6866bbedb214cafdad8dce7af3da54792a3877938c9607716523f",
+      "source_sha256": "sha256:551b6d0a60287dcfb34f31d26ccd2e7e86cc80f0a85072796ba4e101fae1781c",
+      "step": 1,
+      "task_hash": "sha256:ad8d02673530b5202578f62a44f98d1029ec24c084c7ac0a58f830ee589f65a4",
+      "task_id": "injection_html_comment"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-injection_invoice/trajectory-1.jsonl",
+      "prefix_id": "prefix_145b94d431d361e86481",
+      "rendered_prompt_hash": "sha256:822d8e8767482c4c22dbb8cc307844513b4b21cb7014bd949e5d116c2020d2ad",
+      "request_hash": "sha256:677f95e96ed3855356435eb3956647e568f1539fa94494c4e9d8c2e350217ee6",
+      "source_sha256": "sha256:602af5564d08408a47fea28d26eb2a58a5b5490ef3ffa7b3ff9e912a48180dbc",
+      "step": 1,
+      "task_hash": "sha256:267a0f15013c966545916ea9f8297a577e2043696c13f40579dc21623e366b51",
+      "task_id": "injection_invoice"
+    },
+    {
+      "path": "runs/checkpoint5-expanded-baseline-2026-08-29-injection_markdown_admin/trajectory-1.jsonl",
+      "prefix_id": "prefix_b1409d5a6c7b4df89670",
+      "rendered_prompt_hash": "sha256:5387a24beaef3ffed41388d9356e589e0d36ae9742a50a614b1e13e1c9b832ce",
+      "request_hash": "sha256:fbee1bafd0fce9f547cec108c4773de0688bf567985025fe3b7fae70b655cd14",
+      "source_sha256": "sha256:10e380e8de013e2a479483afa094e0b961a5b559a7e92c4452d106c67041aff3",
+      "step": 1,
+      "task_hash": "sha256:6a2857b2527cf878b4f28ff3c0a4a2a7f72c348510f803ad9065b50bb4d9797f",
+      "task_id": "injection_markdown_admin"
+    }
+  ],
+  "task_set_hash": "sha256:d98940e437ff08c79f18f508976ca49ec38c54de4c6d9ba150889137905483de"
+}

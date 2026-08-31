@@ -1,0 +1,10 @@
+{
+  "checkpoint_budget_hours": 144.0,
+  "collection_hours": 3.768767609050782,
+  "complete": true,
+  "completed_continuations": 429,
+  "cumulative_checkpoint_hours": 15.860780001585502,
+  "prior_checkpoint_hours": 12.092012392453617,
+  "stopped_for_budget": false,
+  "total_continuations": 429
+}

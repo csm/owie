@@ -1,0 +1,235 @@
+{
+  "arms": [
+    {
+      "arm_id": "none",
+      "intervention": {
+        "enabled": false
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "projection_c1",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "c1-l10-dim",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "additive_c3",
+      "intervention": {
+        "alpha": 3.3473639488220215,
+        "direction_id": "c3-l10-dim",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "add",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "prompt_defense",
+      "intervention": {
+        "enabled": false
+      },
+      "prompt_defense": true,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "reserved_token_guard",
+      "intervention": {
+        "enabled": false
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": true
+    },
+    {
+      "arm_id": "projection_sham_11",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "sham-11",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "projection_sham_22",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "sham-22",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "projection_sham_33",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "sham-33",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "additive_sham_11",
+      "intervention": {
+        "alpha": 3.3473639488220215,
+        "direction_id": "sham-11",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "add",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "additive_sham_22",
+      "intervention": {
+        "alpha": 3.3473639488220215,
+        "direction_id": "sham-22",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "add",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "additive_sham_33",
+      "intervention": {
+        "alpha": 3.3473639488220215,
+        "direction_id": "sham-33",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "add",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "whole_tool_projection_c1",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "c1-l10-dim",
+        "direction_norm": "unit",
+        "enabled": true,
+        "layer": 10,
+        "mode": "project",
+        "scope": "whole_tool_block"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    },
+    {
+      "arm_id": "sae_c1_rank0",
+      "intervention": {
+        "alpha": 0.0,
+        "direction_id": "sae-c1-rank0-feature-1584",
+        "direction_norm": "raw",
+        "enabled": true,
+        "layer": 19,
+        "mode": "clamp_sae",
+        "scope": "tool_content"
+      },
+      "prompt_defense": false,
+      "reserved_token_guard": false
+    }
+  ],
+  "collection": "arm_retain_and_safety",
+  "config": {
+    "checkpoint_budget_hours": 144.0,
+    "max_new_tokens_safety": 96,
+    "prior_checkpoint_hours": 0.5116092620369616,
+    "seed": 0
+  },
+  "dataset_hashes": {
+    "retain": "sha256:703f0b6f756e986ec6d3bbb409a7381a17d25e4afe40f86148b289f78af920b2",
+    "safety": "sha256:76139a547b86cd2f5cf6cf966af1c7d4c869fc832a41e987334c1d9aef80565a"
+  },
+  "dependencies": {
+    "numpy": "2.5.2",
+    "safetensors": "0.8.0",
+    "tokenizers": "0.22.2",
+    "torch": "2.13.0",
+    "transformers": "5.15.1"
+  },
+  "determinism": {
+    "batching": false,
+    "caching": false,
+    "compaction": false,
+    "concurrency": false,
+    "deterministic_algorithms": true,
+    "generation_api": 0,
+    "greedy_decoding": true,
+    "numpy": 0,
+    "python": 0,
+    "retries": false,
+    "sampling": false,
+    "torch": 0
+  },
+  "frozen_arm_hash": "sha256:95ac4fa3c768ec7e5dc7900ea1de43b3fc8f9e9281467dd27c407ad1b5cc0c5d",
+  "git_revision": "52bd8ae6c178c94a58d9690ea9f1495e5379261a",
+  "model": {
+    "d_model": 4096,
+    "device": "mps",
+    "dtype": "bfloat16",
+    "hook_point": "resid_post",
+    "is_pilot": false,
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "model_revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+    "n_layers": 32
+  },
+  "platform": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "processor": "arm"
+  },
+  "prefix_manifest": {
+    "manifest_hash": "sha256:b38dee512862caa80bfd7f6525b516e4f801bae1adf7fc02f705878681fe5c18",
+    "path": "runs/checkpoint5-prefixes-2026-08-29/manifest.json",
+    "task_set_hash": "sha256:d98940e437ff08c79f18f508976ca49ec38c54de4c6d9ba150889137905483de"
+  },
+  "python": "3.12.12 (main, Oct  9 2025, 11:07:00) [Clang 17.0.0 (clang-1700.6.3.2)]",
+  "registered_directions": {
+    "c1-l10-dim": "sha256:eb66000a5cc95ee70191757de9f8f8ccd9cab9de87fdbde21e51f06ac02a1f06",
+    "c3-l10-dim": "sha256:e2cb4c9e502367046f18913f9ac0893059014b3dd58b06a6c72dac98102d68b0",
+    "sham-11": "sha256:9d701b1ca596b07a9918624b7d7ded6c5264ff1e754c3995579df581d03c3fd5",
+    "sham-22": "sha256:fee7c25348ef411ab41c9a7bd07b5c35ee6602ddcc98d51abda10bf7d5c85dde",
+    "sham-33": "sha256:8ab4ed09de9243b9cd1f9b694d1cc2eda6ba9f4d9d0a0274bc7edc2753e53844"
+  },
+  "registered_sae_features": {
+    "sae-c1-rank0-feature-1584": "sha256:1342092a3d10ff7ed92ee382cba662b69449807e41ee3abd7cddd3864c2fcc8c"
+  },
+  "run_id": "checkpoint5-arm-evaluation-2026-08-29",
+  "schema_version": 1
+}
